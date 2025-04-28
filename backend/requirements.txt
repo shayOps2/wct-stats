@@ -1,0 +1,5 @@
+fastapi
+motor
+pydantic
+python-multipart
+uvicorn
