@@ -18,7 +18,8 @@ function Matches() {
     chaser_id: "",
     evader_id: "",
     tag_made: false,
-    tag_time: 0
+    tag_time: 0,
+    evading_team: ""
   });
   const [showRounds, setShowRounds] = useState(true);
   const [editingRoundIndex, setEditingRoundIndex] = useState(null);
@@ -96,25 +97,14 @@ function Matches() {
     e.preventDefault();
     if (!selectedMatch || !canAddMoreRounds(selectedMatch)) return;
 
-    // For 1v1 matches, set the chaser and evader based on round number
-    let chaser_id, evader_id;
-    if (selectedMatch.match_type === "1v1") {
-      const isEvenRound = selectedMatch.rounds.length % 2 === 0;
-      chaser_id = isEvenRound ? selectedMatch.player2.id : selectedMatch.player1.id;
-      evader_id = isEvenRound ? selectedMatch.player1.id : selectedMatch.player2.id;
-    } else {
-      chaser_id = roundData.chaser_id;
-      evader_id = roundData.evader_id;
-    }
-
     const response = await fetch(`/matches/${selectedMatch.id}/rounds`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        chaser_id,
-        evader_id,
+        chaser_id: roundData.chaser_id,
+        evader_id: roundData.evader_id,
         tag_made: roundData.tag_made,
         tag_time: roundData.tag_made ? parseFloat(roundData.tag_time) : null,
         video_url: null,
@@ -183,18 +173,29 @@ function Matches() {
 
   // Helper function to check if match can accept more rounds
   const canAddMoreRounds = (match) => {
+    if (!match) return false;
     if (match.is_completed) return false;
     
     const roundCount = match.rounds?.length || 0;
+    
     if (match.match_type === "team") {
+      const maxRegularRounds = 16;
+      
+      // If in sudden death, can always add rounds until someone scores
       if (match.is_sudden_death) {
-        return roundCount < 2;  // Only 2 rounds in sudden death
+        return true;
       }
-      // Check if match is already decided
-      const remainingRounds = 16 - roundCount;
-      const team1Potential = match.team1_score + Math.ceil(remainingRounds / 2);
-      const team2Potential = match.team2_score + Math.ceil(remainingRounds / 2);
-      return team1Potential > match.team2_score && team2Potential > match.team1_score;
+      
+      // If reached max rounds and scores are tied, should transition to sudden death
+      if (roundCount >= maxRegularRounds) {
+        return match.team1_score === match.team2_score;
+      }
+      
+      // Check if match is already decided in regular rounds
+      const remainingRounds = maxRegularRounds - roundCount;
+      const team1Potential = match.team1_score + remainingRounds;
+      const team2Potential = match.team2_score + remainingRounds;
+      return team1Potential >= match.team2_score && team2Potential >= match.team1_score;
     } else { // 1v1
       if (match.is_sudden_death) {
         return roundCount < 6;  // 4 regular rounds + 2 sudden death rounds
@@ -214,7 +215,19 @@ function Matches() {
             Match Type:
             <select 
               value={matchType} 
-              onChange={(e) => setMatchType(e.target.value)}
+              onChange={(e) => {
+                setMatchType(e.target.value);
+                // Reset form when changing match type
+                setFormData({
+                  date: new Date().toISOString().split('T')[0],
+                  team1_name: "",
+                  team2_name: "",
+                  team1_player_ids: [],
+                  team2_player_ids: [],
+                  player1_id: "",
+                  player2_id: ""
+                });
+              }}
               style={{ marginLeft: 8 }}
             >
               <option value="1v1">1v1</option>
@@ -236,47 +249,106 @@ function Matches() {
         {matchType === "team" ? (
           // Team match fields
           <div>
-            <div style={{ marginBottom: 16 }}>
+            <div style={{ marginBottom: 16, display: 'flex', gap: 16 }}>
+              {/* Team 1 */}
+              <div style={{ flex: 1, padding: 16, border: '1px solid #ddd', borderRadius: 8 }}>
+                <div style={{ marginBottom: 8 }}>
         <input
           type="text"
-                placeholder="Team 1 Name"
-                value={formData.team1_name}
-                onChange={(e) => setFormData({ ...formData, team1_name: e.target.value })}
+                    placeholder="Team 1 Name"
+                    value={formData.team1_name}
+                    onChange={(e) => setFormData({ ...formData, team1_name: e.target.value })}
+                    style={{ width: '100%', marginBottom: 8, padding: 4 }}
+                  />
+                </div>
+                <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                  {players.map(player => (
+                    <div key={player.id} style={{ 
+                      display: 'flex', 
+                      alignItems: 'center',
+                      padding: '4px 0',
+                      opacity: formData.team2_player_ids.includes(player.id) ? 0.5 : 1,
+                      cursor: formData.team2_player_ids.includes(player.id) ? 'not-allowed' : 'pointer'
+                    }}>
+                      <input
+                        type="checkbox"
+                        id={`team1-${player.id}`}
+                        checked={formData.team1_player_ids.includes(player.id)}
+                        onChange={(e) => {
+                          if (formData.team2_player_ids.includes(player.id)) return;
+                          setFormData({
+                            ...formData,
+                            team1_player_ids: e.target.checked
+                              ? [...formData.team1_player_ids, player.id]
+                              : formData.team1_player_ids.filter(id => id !== player.id)
+                          });
+                        }}
+                        disabled={formData.team2_player_ids.includes(player.id)}
           style={{ marginRight: 8 }}
         />
-              <select
-                multiple
-                value={formData.team1_player_ids}
-                onChange={(e) => setFormData({ 
-                  ...formData, 
-                  team1_player_ids: Array.from(e.target.selectedOptions, option => option.value)
-                })}
-                style={{ marginRight: 16 }}
-              >
-                {players.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
+                      <label 
+                        htmlFor={`team1-${player.id}`}
+                        style={{ 
+                          cursor: formData.team2_player_ids.includes(player.id) ? 'not-allowed' : 'pointer',
+                          userSelect: 'none'
+                        }}
+                      >
+                        {player.name}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
+              {/* Team 2 */}
+              <div style={{ flex: 1, padding: 16, border: '1px solid #ddd', borderRadius: 8 }}>
+                <div style={{ marginBottom: 8 }}>
         <input
           type="text"
-                placeholder="Team 2 Name"
-                value={formData.team2_name}
-                onChange={(e) => setFormData({ ...formData, team2_name: e.target.value })}
+                    placeholder="Team 2 Name"
+                    value={formData.team2_name}
+                    onChange={(e) => setFormData({ ...formData, team2_name: e.target.value })}
+                    style={{ width: '100%', marginBottom: 8, padding: 4 }}
+                  />
+                </div>
+                <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                  {players.map(player => (
+                    <div key={player.id} style={{ 
+                      display: 'flex', 
+                      alignItems: 'center',
+                      padding: '4px 0',
+                      opacity: formData.team1_player_ids.includes(player.id) ? 0.5 : 1,
+                      cursor: formData.team1_player_ids.includes(player.id) ? 'not-allowed' : 'pointer'
+                    }}>
+                      <input
+                        type="checkbox"
+                        id={`team2-${player.id}`}
+                        checked={formData.team2_player_ids.includes(player.id)}
+                        onChange={(e) => {
+                          if (formData.team1_player_ids.includes(player.id)) return;
+                          setFormData({
+                            ...formData,
+                            team2_player_ids: e.target.checked
+                              ? [...formData.team2_player_ids, player.id]
+                              : formData.team2_player_ids.filter(id => id !== player.id)
+                          });
+                        }}
+                        disabled={formData.team1_player_ids.includes(player.id)}
           style={{ marginRight: 8 }}
         />
-              <select
-                multiple
-                value={formData.team2_player_ids}
-                onChange={(e) => setFormData({ 
-                  ...formData, 
-                  team2_player_ids: Array.from(e.target.selectedOptions, option => option.value)
-                })}
-              >
-                {players.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
+                      <label 
+                        htmlFor={`team2-${player.id}`}
+                        style={{ 
+                          cursor: formData.team1_player_ids.includes(player.id) ? 'not-allowed' : 'pointer',
+                          userSelect: 'none'
+                        }}
+                      >
+                        {player.name}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         ) : (
@@ -324,22 +396,64 @@ function Matches() {
               }}
               onClick={() => {
                 setSelectedMatch(match);
-                // Initialize roundData based on match type
+                // Initialize roundData based on match type and state
                 if (match.match_type === "1v1") {
                   const isEvenRound = match.rounds.length % 2 === 0;
                   setRoundData({
                     chaser_id: isEvenRound ? match.player2.id : match.player1.id,
                     evader_id: isEvenRound ? match.player1.id : match.player2.id,
                     tag_made: false,
-                    tag_time: 0
+                    tag_time: 0,
+                    evading_team: ""
                   });
                 } else {
-                  setRoundData({
-                    chaser_id: "",
-                    evader_id: "",
-                    tag_made: false,
-                    tag_time: 0
-                  });
+                  // For team matches
+                  const lastRound = match.rounds[match.rounds.length - 1];
+                  
+                  if (match.is_sudden_death) {
+                    if (match.rounds.length === 16) {
+                      // First sudden death round - allow team selection
+                      setRoundData({
+                        chaser_id: "",
+                        evader_id: "",
+                        tag_made: false,
+                        tag_time: 0,
+                        evading_team: ""
+                      });
+                    } else if (match.rounds.length === 17) {
+                      // Second sudden death round - set evading team to previous chasing team
+                      const firstSuddenDeathRound = match.rounds[16];
+                      const chaserInTeam1 = match.team1_players.some(p => p.id === firstSuddenDeathRound.chaser.id);
+                      setRoundData({
+                        chaser_id: "",
+                        evader_id: "",
+                        tag_made: false,
+                        tag_time: 0,
+                        evading_team: chaserInTeam1 ? "team1" : "team2"
+                      });
+                    }
+                  } else if (match.rounds.length === 0) {
+                    // First round - allow team selection
+                    setRoundData({
+                      chaser_id: "",
+                      evader_id: "",
+                      tag_made: false,
+                      tag_time: 0,
+                      evading_team: ""
+                    });
+                  } else {
+                    // Regular rounds - follow standard rules
+                    setRoundData({
+                      chaser_id: "",
+                      evader_id: lastRound ? (
+                        !lastRound.tag_made ? lastRound.evader.id : // After successful evasion, same evader continues
+                        lastRound.chaser.id  // After successful tag, chaser becomes evader
+                      ) : "",
+                      tag_made: false,
+                      tag_time: 0,
+                      evading_team: ""
+                    });
+                  }
                 }
               }}
             >
@@ -373,7 +487,7 @@ function Matches() {
               <div style={{ marginBottom: 8 }}>
                 <strong>Rounds:</strong> {match.rounds?.length || 0}
               </div>
-              <button
+            <button
                 onClick={(e) => {
                   e.stopPropagation();
                   handleDelete(match.id);
@@ -400,88 +514,298 @@ function Matches() {
             {/* Round Creation Form */}
             {canAddMoreRounds(selectedMatch) ? (
               <form onSubmit={handleAddRound} style={{ marginBottom: 16 }}>
-                <div style={{ marginBottom: 8 }}>
-                  <label style={{ display: 'block', marginBottom: 4 }}>
-                    Chaser:
-                    {selectedMatch.match_type === "1v1" ? (
-                      // For 1v1, auto-select based on round number
-                      <input
-                        type="text"
-                        value={selectedMatch.rounds.length % 2 === 0 ? selectedMatch.player2.name : selectedMatch.player1.name}
-                        disabled
-                        style={{ marginLeft: 8 }}
-                      />
-                    ) : (
-                      // For team matches, show players from opposing team
-                      <select
-                        value={roundData.chaser_id}
-                        onChange={(e) => setRoundData({ ...roundData, chaser_id: e.target.value })}
-                        style={{ marginLeft: 8 }}
-                        required
-                      >
-                        <option value="">Select Chaser</option>
-                        {getAvailablePlayers().filter(p => {
-                          const lastRound = selectedMatch.rounds[selectedMatch.rounds.length - 1];
-                          const lastEvaderTeam = lastRound && !lastRound.tag_made ? 
-                            (selectedMatch.team1_players.some(t1p => t1p.id === lastRound.evader.id) ? 1 : 2) : null;
-                          
-                          if (lastEvaderTeam === 1) {
-                            return selectedMatch.team2_players.some(t2p => t2p.id === p.id);
-                          } else if (lastEvaderTeam === 2) {
-                            return selectedMatch.team1_players.some(t1p => t1p.id === p.id);
-                          } else {
-                            // First round or after a tag, either team can chase
-                            return true;
-                          }
-                        }).map(p => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                      </select>
+                {selectedMatch.match_type === "team" && (selectedMatch.rounds.length === 0 || selectedMatch.is_sudden_death) ? (
+                  // Team match first round or sudden death logic (unchanged)
+                  <>
+                    {/* Step 1: Select evading team (only for first round or first sudden death round) */}
+                    {(selectedMatch.rounds.length === 0 || 
+                      (selectedMatch.is_sudden_death && selectedMatch.rounds.length === 16)) && (
+                      <div style={{ marginBottom: 8 }}>
+                        <label style={{ display: 'block', marginBottom: 4 }}>
+                          Evading Team:
+                          <select
+                            value={roundData.evading_team}
+                            onChange={(e) => {
+                              setRoundData({
+                                ...roundData,
+                                evading_team: e.target.value,
+                                evader_id: "",
+                                chaser_id: ""
+                              });
+                            }}
+                            style={{ marginLeft: 8 }}
+                            required
+                          >
+                            <option value="">Select Team</option>
+                            <option value="team1">{selectedMatch.team1_name}</option>
+                            <option value="team2">{selectedMatch.team2_name}</option>
+                          </select>
+                        </label>
+                      </div>
                     )}
-                  </label>
-                </div>
 
-                <div style={{ marginBottom: 8 }}>
-                  <label style={{ display: 'block', marginBottom: 4 }}>
-                    Evader:
-                    {selectedMatch.match_type === "1v1" ? (
-                      // For 1v1, auto-select based on round number
-                      <input
-                        type="text"
-                        value={selectedMatch.rounds.length % 2 === 0 ? selectedMatch.player1.name : selectedMatch.player2.name}
-                        disabled
-                        style={{ marginLeft: 8 }}
-                      />
-                    ) : (
-                      // For team matches, show valid evader options
-                      <select
-                        value={roundData.evader_id}
-                        onChange={(e) => setRoundData({ ...roundData, evader_id: e.target.value })}
-                        style={{ marginLeft: 8 }}
-                        required
-                      >
-                        <option value="">Select Evader</option>
-                        {(() => {
-                          const lastRound = selectedMatch.rounds[selectedMatch.rounds.length - 1];
-                          if (lastRound && !lastRound.tag_made) {
-                            // After successful evasion, only show the last evader
-                            return [lastRound.evader].map(p => (
+                    {/* For second sudden death round, automatically set evading team */}
+                    {selectedMatch.is_sudden_death && selectedMatch.rounds.length === 17 && (() => {
+                      // Get the chasing team from the first sudden death round
+                      const firstSuddenDeathRound = selectedMatch.rounds[16];
+                      const chaserInTeam1 = selectedMatch.team1_players.some(p => p.id === firstSuddenDeathRound.chaser.id);
+                      // Set the evading team to the team that chased in the first sudden death round
+                      if (!roundData.evading_team) {
+                        setTimeout(() => {
+                          setRoundData(prev => ({
+                            ...prev,
+                            evading_team: chaserInTeam1 ? 'team1' : 'team2'
+                          }));
+                        }, 0);
+                      }
+                      return (
+                        <div style={{ marginBottom: 8 }}>
+                          <strong>Evading Team: {chaserInTeam1 ? selectedMatch.team1_name : selectedMatch.team2_name}</strong>
+                          <div style={{ fontSize: '0.9em', color: '#666' }}>
+                            (Team that chased in first sudden death round must evade)
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Step 2: Select evader from chosen team */}
+                    {roundData.evading_team && (
+                      <div style={{ marginBottom: 8 }}>
+                        <label style={{ display: 'block', marginBottom: 4 }}>
+                          Evader:
+                          <select
+                            value={roundData.evader_id}
+                            onChange={(e) => {
+                              setRoundData({
+                                ...roundData,
+                                evader_id: e.target.value,
+                                chaser_id: ""
+                              });
+                            }}
+                            style={{ marginLeft: 8 }}
+                            required
+                          >
+                            <option value="">Select Evader</option>
+                            {(roundData.evading_team === "team1" ? selectedMatch.team1_players : selectedMatch.team2_players).map(p => (
                               <option key={p.id} value={p.id}>{p.name}</option>
-                            ));
-                          }
-                          
-                          // Otherwise show players from the appropriate team
-                          const chaserTeam = selectedMatch.team1_players.some(p => p.id === roundData.chaser_id) ? 1 : 2;
-                          const availableEvaders = chaserTeam === 1 ? selectedMatch.team2_players : selectedMatch.team1_players;
-                          
-                          return availableEvaders.map(p => (
-                            <option key={p.id} value={p.id}>{p.name}</option>
-                          ));
-                        })()}
-                      </select>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
                     )}
-                  </label>
-                </div>
+
+                    {/* Step 3: Select chaser from opposing team */}
+                    {roundData.evader_id && (
+                      <div style={{ marginBottom: 8 }}>
+                        <label style={{ display: 'block', marginBottom: 4 }}>
+                          Chaser:
+                          <select
+                            value={roundData.chaser_id}
+                            onChange={(e) => setRoundData({ ...roundData, chaser_id: e.target.value })}
+                            style={{ marginLeft: 8 }}
+                            required
+                          >
+                            <option value="">Select Chaser</option>
+                            {(roundData.evading_team === "team1" ? selectedMatch.team2_players : selectedMatch.team1_players).map(p => (
+                              <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                    )}
+
+                    {/* Add sudden death round indicator */}
+                    {selectedMatch.is_sudden_death && (
+                      <div style={{ marginTop: 8, padding: 8, backgroundColor: '#fff3f3', borderRadius: 4 }}>
+                        <strong style={{ color: '#d32f2f' }}>
+                          Sudden Death Round {selectedMatch.rounds.length - 15} of 2
+                        </strong>
+                        <div style={{ fontSize: '0.9em', color: '#666', marginTop: 4 }}>
+                          Winner will be determined by longest evasion time
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  // Regular round selection and 1v1 sudden death
+                  <>
+                    <div style={{ marginBottom: 8 }}>
+                      <label style={{ display: 'block', marginBottom: 4 }}>
+                        Evader:
+                        {selectedMatch.match_type === "1v1" ? (
+                          <>
+                            {selectedMatch.is_sudden_death ? (
+                              // 1v1 Sudden Death Logic
+                              <>
+                                {selectedMatch.rounds.length === 4 ? (
+                                  // First sudden death round - allow evader selection
+                                  <select
+                                    value={roundData.evader_id}
+                                    onChange={(e) => {
+                                      setRoundData({
+                                        ...roundData,
+                                        evader_id: e.target.value,
+                                        // Set chaser automatically to the other player
+                                        chaser_id: e.target.value === selectedMatch.player1.id ? 
+                                          selectedMatch.player2.id : selectedMatch.player1.id
+                                      });
+                                    }}
+                                    style={{ marginLeft: 8 }}
+                                    required
+                                  >
+                                    <option value="">Select Evader</option>
+                                    <option value={selectedMatch.player1.id}>{selectedMatch.player1.name}</option>
+                                    <option value={selectedMatch.player2.id}>{selectedMatch.player2.name}</option>
+                                  </select>
+                                ) : (
+                                  // Second sudden death round - evader is previous chaser
+                                  (() => {
+                                    const firstSuddenDeathRound = selectedMatch.rounds[4];
+                                    const previousChaser = firstSuddenDeathRound.chaser;
+                                    // Auto-set the evader and chaser if not set
+                                    if (!roundData.evader_id) {
+                                      setTimeout(() => {
+                                        setRoundData(prev => ({
+                                          ...prev,
+                                          evader_id: previousChaser.id,
+                                          chaser_id: previousChaser.id === selectedMatch.player1.id ? 
+                                            selectedMatch.player2.id : selectedMatch.player1.id
+                                        }));
+                                      }, 0);
+                                    }
+                                    return (
+                                      <input
+                                        type="text"
+                                        value={previousChaser.name}
+                                        disabled
+                                        style={{ marginLeft: 8 }}
+                                      />
+                                    );
+                                  })()
+                                )}
+                                {/* Add sudden death round indicator */}
+                                <div style={{ marginTop: 8, padding: 8, backgroundColor: '#fff3f3', borderRadius: 4 }}>
+                                  <strong style={{ color: '#d32f2f' }}>
+                                    Sudden Death Round {selectedMatch.rounds.length - 3} of 2
+                                  </strong>
+                                  <div style={{ fontSize: '0.9em', color: '#666', marginTop: 4 }}>
+                                    Winner will be determined by longest evasion time
+                                  </div>
+                                </div>
+                              </>
+                            ) : (
+                              // Regular 1v1 rounds
+                              <>
+                                <input
+                                  type="text"
+                                  value={selectedMatch.rounds.length % 2 === 0 ? selectedMatch.player1.name : selectedMatch.player2.name}
+                                  disabled
+                                  style={{ marginLeft: 8 }}
+                                />
+                                {/* Hidden input and auto-set logic for regular rounds */}
+                                {(() => {
+                                  if (roundData.evader_id === "") {
+                                    setTimeout(() => {
+                                      setRoundData(prev => ({
+                                        ...prev,
+                                        evader_id: selectedMatch.rounds.length % 2 === 0 ? selectedMatch.player1.id : selectedMatch.player2.id,
+                                        chaser_id: selectedMatch.rounds.length % 2 === 0 ? selectedMatch.player2.id : selectedMatch.player1.id
+                                      }));
+                                    }, 0);
+                                  }
+                                  return null;
+                                })()}
+                              </>
+                            )}
+                          </>
+                        ) : (
+                          // Team match regular rounds (unchanged)
+                          <select
+                            value={roundData.evader_id}
+                            onChange={(e) => {
+                              setRoundData({ 
+                                ...roundData, 
+                                evader_id: e.target.value,
+                                chaser_id: "" 
+                              });
+                            }}
+                            style={{ marginLeft: 8 }}
+                            required
+                            disabled={selectedMatch.rounds.length > 0}
+                          >
+                            <option value="">Select Evader</option>
+                            {(() => {
+                              const lastRound = selectedMatch.rounds[selectedMatch.rounds.length - 1];
+                              if (lastRound) {
+                                const nextEvader = !lastRound.tag_made ? lastRound.evader : lastRound.chaser;
+                                if (!roundData.evader_id) {
+                                  setTimeout(() => {
+                                    setRoundData(prev => ({
+                                      ...prev,
+                                      evader_id: nextEvader.id
+                                    }));
+                                  }, 0);
+                                }
+                                return [nextEvader].map(p => (
+                                  <option key={p.id} value={p.id}>
+                                    {`${p.name} (${!lastRound.tag_made ? 'must continue after evasion' : 'must evade after successful tag'})`}
+                                  </option>
+                                ));
+                              }
+                              return null;
+                            })()}
+                          </select>
+                        )}
+                      </label>
+                    </div>
+
+                    <div style={{ marginBottom: 8 }}>
+                      <label style={{ display: 'block', marginBottom: 4 }}>
+                        Chaser:
+                        {selectedMatch.match_type === "1v1" ? (
+                          <>
+                            {selectedMatch.is_sudden_death ? (
+                              // 1v1 Sudden Death - chaser is automatically set
+                              <input
+                                type="text"
+                                value={roundData.chaser_id ? 
+                                  (roundData.chaser_id === selectedMatch.player1.id ? selectedMatch.player1.name : selectedMatch.player2.name) 
+                                  : "Select evader first"}
+                                disabled
+                                style={{ marginLeft: 8 }}
+                              />
+                            ) : (
+                              // Regular 1v1 rounds
+                              <input
+                                type="text"
+                                value={selectedMatch.rounds.length % 2 === 0 ? selectedMatch.player2.name : selectedMatch.player1.name}
+                                disabled
+                                style={{ marginLeft: 8 }}
+                              />
+                            )}
+                          </>
+                        ) : (
+                          // Team match regular rounds (unchanged)
+                          <select
+                            value={roundData.chaser_id}
+                            onChange={(e) => setRoundData({ ...roundData, chaser_id: e.target.value })}
+                            style={{ marginLeft: 8 }}
+                            required
+                          >
+                            <option value="">Select Chaser</option>
+                            {(() => {
+                              if (!roundData.evader_id) return [];
+                              const evaderInTeam1 = selectedMatch.team1_players.some(p => p.id === roundData.evader_id);
+                              return (evaderInTeam1 ? selectedMatch.team2_players : selectedMatch.team1_players).map(p => (
+                                <option key={p.id} value={p.id}>{p.name}</option>
+                              ));
+                            })()}
+                          </select>
+                        )}
+                      </label>
+                    </div>
+                  </>
+                )}
 
                 <div style={{ marginBottom: 8 }}>
                   <label style={{ display: 'block', marginBottom: 4 }}>
@@ -518,8 +842,11 @@ function Matches() {
             ) : (
               <div style={{ marginBottom: 16, color: '#f55' }}>
                 {selectedMatch.is_completed 
-                  ? "Match is completed. No more rounds can be added."
-                  : "Match is in progress but no more rounds can be added (score difference too high)."}
+                  ? `Match is completed. Winner: ${selectedMatch.winner}`
+                  : selectedMatch.match_type === "team"
+                    ? "Match is in progress but no more rounds can be added (score difference too high)."
+                    : "Match is in progress but no more rounds can be added."
+                }
               </div>
             )}
 

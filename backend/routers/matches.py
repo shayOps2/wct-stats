@@ -42,6 +42,14 @@ async def create_match(
         if not all([team1_name, team2_name, team1_player_ids, team2_player_ids]):
             raise HTTPException(status_code=400, detail="Missing team information")
         
+        # Check for duplicate players between teams
+        duplicate_players = set(team1_player_ids) & set(team2_player_ids)
+        if duplicate_players:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Players cannot be on both teams: {duplicate_players}"
+            )
+        
         # Get player objects
         team1_players = []
         team2_players = []
@@ -97,15 +105,24 @@ async def add_round(
     tag_location: dict = Body(None),
     quad_map_id: str = Body(None)
 ):
+    logger.info(f"Adding round to match {match_id}")
+    logger.info(f"Request data: chaser={chaser_id}, evader={evader_id}, tag_made={tag_made}, tag_time={tag_time}")
+    
     match = await get_match(match_id)
     if not match:
+        logger.error(f"Match not found: {match_id}")
         raise HTTPException(status_code=404, detail="Match not found")
+    
+    logger.info(f"Found match: {match.model_dump()}")
     
     # Get player objects
     chaser = await get_player(chaser_id)
     evader = await get_player(evader_id)
     if not chaser or not evader:
+        logger.error(f"Player not found: chaser={chaser_id}, evader={evader_id}")
         raise HTTPException(status_code=404, detail="Player not found")
+    
+    logger.info(f"Found players: chaser={chaser.name}, evader={evader.name}")
     
     # Validate players based on match type
     if match.match_type == "1v1":
@@ -125,14 +142,39 @@ async def add_round(
         chaser_in_team1 = any(str(p.id) == str(chaser.id) for p in match.team1_players)
         chaser_in_team2 = any(str(p.id) == str(chaser.id) for p in match.team2_players)
         
+        logger.info(f"Team Match - Round: {len(match.rounds) + 1}")
+        logger.info(f"Evader: {evader.name} (Team {1 if evader_in_team1 else 2})")
+        logger.info(f"Chaser: {chaser.name} (Team {1 if chaser_in_team1 else 2})")
+        
         if not ((evader_in_team1 and chaser_in_team2) or (evader_in_team2 and chaser_in_team1)):
             raise HTTPException(status_code=400, detail="Players must be from opposing teams")
         
-        # For team matches, verify that successful evader stays for next round
+        # Check previous round rules
         if len(match.rounds) > 0:
             last_round = match.rounds[-1]
-            if not last_round.tag_made and str(last_round.evader.id) != str(evader.id):
-                raise HTTPException(status_code=400, detail="After successful evasion, the same player must evade in the next round")
+            logger.info(f"Previous Round - Evader: {last_round.evader.name}, Tag Made: {last_round.tag_made}")
+            
+            if not last_round.tag_made:  # Previous round was a successful evasion
+                if str(last_round.evader.id) != str(evader.id):
+                    logger.info(f"Error: {evader.name} cannot evade, {last_round.evader.name} must continue after successful evasion")
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Player {last_round.evader.name} must continue as evader after successful evasion"
+                    )
+                # Ensure chaser is from the opposite team
+                last_evader_in_team1 = any(str(p.id) == str(last_round.evader.id) for p in match.team1_players)
+                if (last_evader_in_team1 and not chaser_in_team2) or (not last_evader_in_team1 and not chaser_in_team1):
+                    logger.info(f"Error: Chaser {chaser.name} must be from the opposing team")
+                    raise HTTPException(status_code=400, detail="Chaser must be from the opposing team")
+                logger.info("Validated: Previous successful evader continuing")
+            else:  # Previous round was a tag
+                if str(last_round.chaser.id) != str(evader.id):
+                    logger.info(f"Error: {evader.name} cannot evade, {last_round.chaser.name} must be evader after successful tag")
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Player {last_round.chaser.name} must be evader after successful tag"
+                    )
+                logger.info("Validated: Previous successful chaser is now evading")
     
     # Validate tag_time based on tag_made
     if tag_made and (tag_time is None or tag_time < 0 or tag_time > 20):
@@ -171,12 +213,46 @@ async def add_round(
     if match.match_type == "team":
         max_rounds = 16
         remaining_rounds = max_rounds - len(match.rounds)
-        team1_max_possible = match.team1_score + remaining_rounds
-        team2_max_possible = match.team2_score + remaining_rounds
         
-        if team1_max_possible < match.team2_score or team2_max_possible < match.team1_score:
+        if len(match.rounds) >= max_rounds:
+            # If scores are tied after 16 rounds, go to sudden death
+            if match.team1_score == match.team2_score:
+                logger.info("Match going to sudden death after 16 rounds - Scores tied")
+                match.is_sudden_death = True
+            else:
+                logger.info("Match completed after 16 rounds - Scores different")
+                match.is_completed = True
+                match.winner = match.team1_name if match.team1_score > match.team2_score else match.team2_name
+        else:
+            # Check if match can be won with remaining rounds
+            team1_max_possible = match.team1_score + remaining_rounds
+            team2_max_possible = match.team2_score + remaining_rounds
+            
+            if team1_max_possible < match.team2_score or team2_max_possible < match.team1_score:
+                logger.info("Match completed early - Score difference too high")
+                match.is_completed = True
+                match.winner = match.team1_name if match.team1_score > match.team2_score else match.team2_name
+        
+        # Handle sudden death completion
+        if match.is_sudden_death and len(match.rounds) >= max_rounds + 2:
+            logger.info("Calculating sudden death winner based on evasion times")
+            # Get the two sudden death rounds
+            sd_round1 = match.rounds[max_rounds]
+            sd_round2 = match.rounds[max_rounds + 1]
+            
+            # Calculate evasion times (20 seconds for successful evasion)
+            team1_time = 20 if not sd_round1.tag_made else sd_round1.tag_time
+            team2_time = 20 if not sd_round2.tag_made else sd_round2.tag_time
+            
+            logger.info(f"Sudden Death Times - {match.team1_name}: {team1_time}s, {match.team2_name}: {team2_time}s")
             match.is_completed = True
-            match.winner = match.team1_name if match.team1_score > match.team2_score else match.team2_name
+            if team1_time > team2_time:
+                match.winner = match.team1_name
+            elif team2_time > team1_time:
+                match.winner = match.team2_name
+            else:
+                # If times are equal, both teams showed equal skill
+                match.winner = "Draw"
     else:  # 1v1
         logger.info(f"1v1 Match State - Rounds: {len(match.rounds)}, Score: {match.team1_score}-{match.team2_score}, Sudden Death: {match.is_sudden_death}")
         
@@ -265,14 +341,45 @@ async def update_match(
         max_rounds = 16
         remaining_rounds = max_rounds - len(match.rounds)
         
-        # Team 1 can't win if:
-        # Current score + all remaining rounds < Team 2's current score
-        team1_max_possible = match.team1_score + remaining_rounds
-        team2_max_possible = match.team2_score + remaining_rounds
+        if len(match.rounds) >= max_rounds:
+            # If scores are tied after 16 rounds, go to sudden death
+            if match.team1_score == match.team2_score:
+                logger.info("Match going to sudden death after 16 rounds - Scores tied")
+                match.is_sudden_death = True
+            else:
+                logger.info("Match completed after 16 rounds - Scores different")
+                match.is_completed = True
+                match.winner = match.team1_name if match.team1_score > match.team2_score else match.team2_name
+        else:
+            # Check if match can be won with remaining rounds
+            team1_max_possible = match.team1_score + remaining_rounds
+            team2_max_possible = match.team2_score + remaining_rounds
+            
+            if team1_max_possible < match.team2_score or team2_max_possible < match.team1_score:
+                logger.info("Match completed early - Score difference too high")
+                match.is_completed = True
+                match.winner = match.team1_name if match.team1_score > match.team2_score else match.team2_name
         
-        if team1_max_possible < match.team2_score or team2_max_possible < match.team1_score:
+        # Handle sudden death completion
+        if match.is_sudden_death and len(match.rounds) >= max_rounds + 2:
+            logger.info("Calculating sudden death winner based on evasion times")
+            # Get the two sudden death rounds
+            sd_round1 = match.rounds[max_rounds]
+            sd_round2 = match.rounds[max_rounds + 1]
+            
+            # Calculate evasion times (20 seconds for successful evasion)
+            team1_time = 20 if not sd_round1.tag_made else sd_round1.tag_time
+            team2_time = 20 if not sd_round2.tag_made else sd_round2.tag_time
+            
+            logger.info(f"Sudden Death Times - {match.team1_name}: {team1_time}s, {match.team2_name}: {team2_time}s")
             match.is_completed = True
-            match.winner = match.team1_name if match.team1_score > match.team2_score else match.team2_name
+            if team1_time > team2_time:
+                match.winner = match.team1_name
+            elif team2_time > team1_time:
+                match.winner = match.team2_name
+            else:
+                # If times are equal, both teams showed equal skill
+                match.winner = "Draw"
     else:  # 1v1
         if len(match.rounds) >= 4:
             if match.team1_score == match.team2_score:

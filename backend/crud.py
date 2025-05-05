@@ -95,30 +95,38 @@ def document_to_match(doc):
         player1 = document_to_player(doc.get("player1"))
         player2 = document_to_player(doc.get("player2"))
     
-    # Convert rounds
+    # Convert rounds (ensure it exists with a default empty list)
     rounds = []
     for round_doc in doc.get("rounds", []):
-        round_doc["chaser"] = document_to_player(round_doc["chaser"])
-        round_doc["evader"] = document_to_player(round_doc["evader"])
-        rounds.append(Round(**round_doc))
+        try:
+            round_doc["chaser"] = document_to_player(round_doc["chaser"])
+            round_doc["evader"] = document_to_player(round_doc["evader"])
+            rounds.append(Round(**round_doc))
+        except Exception as e:
+            print(f"Error converting round: {str(e)}")
+            continue
     
-    return Match(
-        id=str(doc["_id"]),
-        date=doc["date"],
-        match_type=doc["match_type"],
-        team1_name=doc.get("team1_name"),
-        team2_name=doc.get("team2_name"),
-        team1_players=team1_players,
-        team2_players=team2_players,
-        player1=player1,
-        player2=player2,
-        rounds=rounds,
-        team1_score=doc.get("team1_score", 0),
-        team2_score=doc.get("team2_score", 0),
-        is_sudden_death=doc.get("is_sudden_death", False),
-        is_completed=doc.get("is_completed", False),
-        winner=doc.get("winner")
-    )
+    try:
+        return Match(
+            id=str(doc["_id"]),
+            date=doc["date"],
+            match_type=doc["match_type"],
+            team1_name=doc.get("team1_name"),
+            team2_name=doc.get("team2_name"),
+            team1_players=team1_players,
+            team2_players=team2_players,
+            player1=player1,
+            player2=player2,
+            rounds=rounds,
+            team1_score=doc.get("team1_score", 0),
+            team2_score=doc.get("team2_score", 0),
+            is_sudden_death=doc.get("is_sudden_death", False),
+            is_completed=doc.get("is_completed", False),
+            winner=doc.get("winner")
+        )
+    except Exception as e:
+        print(f"Error creating Match object: {str(e)}")
+        return None
 
 def match_to_document(match: Match):
     doc = match.model_dump(exclude_unset=True)
@@ -162,9 +170,18 @@ async def get_matches():
 
 async def get_match(match_id: str):
     try:
+        print(f"Attempting to find match with ID: {match_id}")
         document = await db["matches"].find_one({"_id": bson.ObjectId(match_id)})
-        return document_to_match(document)
-    except:
+        if document:
+            return document_to_match(document)
+        else:
+            print(f"No match found with ID: {match_id}")
+            return None
+    except bson.errors.InvalidId:
+        print(f"Invalid ObjectId format: {match_id}")
+        return None
+    except Exception as e:
+        print(f"Error retrieving match: {str(e)}")
         return None
 
 async def add_match(match: Match):
