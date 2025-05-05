@@ -54,13 +54,38 @@ function Players() {
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
         {players.map(p => (
           <div key={p.id} style={{ border: "1px solid #ccc", borderRadius: 8, padding: 12, width: 180, position: "relative" }}>
-            {p.image && (
-              <img src={`/images/${p.image.split("/").pop()}`} alt={p.name} style={{ width: "100%", borderRadius: 6 }} />
+            {p.image_id && (
+              <div style={{ width: "100%", paddingTop: "100%", position: "relative", marginBottom: 8 }}>
+                <img 
+                  src={`/players/${p.id}/image`} 
+                  alt={p.name} 
+                  style={{ 
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    borderRadius: 6 
+                  }} 
+                />
+              </div>
             )}
-            <div style={{ fontWeight: 600, marginTop: 8 }}>{p.name}</div>
+            <div style={{ fontWeight: 600 }}>{p.name}</div>
             <button
               onClick={() => handleDelete(p.id)}
-              style={{ position: "absolute", top: 8, right: 8, background: "#f55", color: "#fff", border: "none", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}
+              style={{ 
+                position: "absolute", 
+                top: 8, 
+                right: 8, 
+                background: "#f55", 
+                color: "#fff", 
+                border: "none", 
+                borderRadius: 4, 
+                padding: "2px 8px", 
+                cursor: "pointer",
+                zIndex: 1
+              }}
             >
               Delete
             </button>

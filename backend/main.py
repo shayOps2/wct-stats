@@ -5,10 +5,11 @@ import os
 
 app = FastAPI()
 
-# Ensure images directory exists
+# Ensure images directory exists for quad maps only
 os.makedirs("images", exist_ok=True)
 
-app.mount("/images", StaticFiles(directory="images"), name="images")
+# Mount images directory for quad maps
+app.mount("/images", StaticFiles(directory="images"), name="quad_maps")
 
 app.include_router(players.router, prefix="/players", tags=["Players"])
 app.include_router(matches.router, prefix="/matches", tags=["Matches"])

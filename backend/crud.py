@@ -2,6 +2,7 @@
 from database import db
 from models import Player, Match, QuadMap
 from bson import ObjectId
+import bson
 
 def player_helper(player) -> dict:
     return {
@@ -10,23 +11,61 @@ def player_helper(player) -> dict:
         "image": player.get("image"),
     }
 
+# Helper function to convert MongoDB document to Player model
+def document_to_player(doc):
+    if doc:
+        return Player(
+            id=str(doc["_id"]),
+            name=doc["name"],
+            image_id=doc.get("image_id")
+        )
+    return None
+
 async def get_players():
     players = []
-    async for p in db.players.find():
-        players.append(player_helper(p))
+    cursor = db["players"].find()
+    async for document in cursor:
+        players.append(document_to_player(document))
     return players
 
-async def get_player(id: str):
-    p = await db.players.find_one({"_id": ObjectId(id)})
-    return player_helper(p) if p else None
+async def get_player(player_id: str):
+    try:
+        document = await db["players"].find_one({"_id": bson.ObjectId(player_id)})
+        return document_to_player(document)
+    except:
+        return None
 
 async def add_player(player: Player):
-    player_dict = player.dict(exclude_unset=True)
-    res = await db.players.insert_one(player_dict)
-    return await get_player(str(res.inserted_id))
+    if player.id:
+        # Update existing player
+        try:
+            player_dict = player.model_dump(exclude_unset=True)
+            if "id" in player_dict:
+                player_dict["_id"] = bson.ObjectId(player_dict.pop("id"))
+            
+            await db["players"].update_one(
+                {"_id": player_dict["_id"]},
+                {"$set": {k: v for k, v in player_dict.items() if k != "_id"}}
+            )
+            return await get_player(str(player_dict["_id"]))
+        except Exception as e:
+            print(f"Error updating player: {str(e)}")
+            return None
+    else:
+        # Create new player
+        try:
+            player_dict = player.model_dump(exclude_unset=True, exclude={"id"})
+            result = await db["players"].insert_one(player_dict)
+            return await get_player(str(result.inserted_id))
+        except Exception as e:
+            print(f"Error creating player: {str(e)}")
+            return None
 
-async def delete_player(id: str):
-    res = await db.players.delete_one({"_id": ObjectId(id)})
-    return res.deleted_count > 0
+async def delete_player(player_id: str):
+    try:
+        result = await db["players"].delete_one({"_id": bson.ObjectId(player_id)})
+        return result.deleted_count > 0
+    except:
+        return False
 
 # Similar helpers for Match and QuadMap... (to be expanded)

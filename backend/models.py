@@ -5,11 +5,11 @@ from datetime import datetime
 class Player(BaseModel):
     id: Optional[str] = None
     name: str
-    image: Optional[str] = None
+    image_id: Optional[str] = None  # GridFS file ID
 
 class Chase(BaseModel):
-    chaser_id: Optional[str] = None
-    evader_id: Optional[str] = None
+    chaser: Optional[Player] = None
+    evader: Optional[Player] = None
     tag_made: Optional[bool] = None
     tag_time: Optional[int] = None
     tag_location: Optional[dict] = None  # {'x': float, 'y': float}
