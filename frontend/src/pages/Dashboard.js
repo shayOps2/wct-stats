@@ -96,10 +96,18 @@ function Dashboard() {
         url = `/players/${selectedPlayer}/versus/${selectedOpponent}?`;
         
         // Add date filters if provided
-        if (dateRange && dateRange[0] && dateRange[1]) {
-          const startDate = dateRange[0].toISOString();
-          const endDate = dateRange[1].toISOString();
-          url += `start_date=${startDate}&end_date=${endDate}&`;
+        if (dateRange) {
+          // If dateRange has at least a start date
+          if (dateRange[0]) {
+            const startDate = dateRange[0].toISOString();
+            url += `start_date=${startDate}&`;
+            
+            // If end date is also provided, use it; otherwise default to today
+            if (dateRange[1]) {
+              const endDate = dateRange[1].toISOString();
+              url += `end_date=${endDate}&`;
+            }
+          }
         }
         
         statsResponse = await fetch(url);
@@ -108,10 +116,18 @@ function Dashboard() {
         url = `/players/${selectedPlayer}/stats?`;
         
         // Add date filters if provided
-        if (dateRange && dateRange[0] && dateRange[1]) {
-          const startDate = dateRange[0].toISOString();
-          const endDate = dateRange[1].toISOString();
-          url += `start_date=${startDate}&end_date=${endDate}&`;
+        if (dateRange) {
+          // If dateRange has at least a start date
+          if (dateRange[0]) {
+            const startDate = dateRange[0].toISOString();
+            url += `start_date=${startDate}&`;
+            
+            // If end date is also provided, use it; otherwise default to today
+            if (dateRange[1]) {
+              const endDate = dateRange[1].toISOString();
+              url += `end_date=${endDate}&`;
+            }
+          }
         }
         
         // Add match type filter if provided
@@ -278,7 +294,24 @@ function Dashboard() {
           <Col xs={24} sm={6}>
             <RangePicker 
               style={{ width: '100%' }}
-              onChange={setDateRange}
+              onChange={value => {
+                // Value will be null when user clears the picker
+                if (!value) {
+                  setDateRange(null);
+                  return;
+                }
+                
+                // If both dates are set or none, use value directly
+                if ((value[0] && value[1]) || (!value[0] && !value[1])) {
+                  setDateRange(value);
+                } 
+                // If only one date is set, treat it as the start date
+                else if (value[0] && !value[1]) {
+                  setDateRange([value[0], null]);
+                }
+              }}
+              allowEmpty={[false, true]} 
+              placeholder={['Start Date', 'End Date (optional)']}
               disabled={!selectedPlayer}
             />
           </Col>
@@ -289,11 +322,52 @@ function Dashboard() {
               onClick={fetchPlayerStats}
               disabled={!selectedPlayer}
               loading={loadingPlayerStats}
-              style={{ marginTop: '8px' }}
+              style={{ marginTop: '8px', marginRight: '8px' }}
             >
               Apply Filters
             </Button>
+
+            {/* Clear filters button */}
+            {(dateRange || matchType || selectedOpponent) && (
+              <Button
+                onClick={() => {
+                  setDateRange(null);
+                  setMatchType(null);
+                  setSelectedOpponent(null);
+                  // If player is still selected, fetch stats without filters
+                  if (selectedPlayer) {
+                    setTimeout(fetchPlayerStats, 0);
+                  }
+                }}
+                style={{ marginTop: '8px' }}
+              >
+                Clear Filters
+              </Button>
+            )}
           </Col>
+          
+          {/* Show active filters summary */}
+          {selectedPlayer && (dateRange || matchType || selectedOpponent) && (
+            <Col xs={24}>
+              <div style={{ marginTop: '16px', padding: '8px', background: '#f9f9f9', borderRadius: '4px' }}>
+                <h4 style={{ margin: '0 0 8px 0' }}>Active Filters:</h4>
+                <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                  {dateRange && dateRange[0] && (
+                    <li>
+                      Date Range: {dateRange[0].format('MMM D, YYYY')}
+                      {dateRange[1] ? ` to ${dateRange[1].format('MMM D, YYYY')}` : ' to Today'}
+                    </li>
+                  )}
+                  {matchType && (
+                    <li>Match Type: {matchType === '1v1' ? '1v1 Matches' : 'Team Matches'}</li>
+                  )}
+                  {selectedOpponent && (
+                    <li>Opponent: {players.find(p => p.id === selectedOpponent)?.name}</li>
+                  )}
+                </ul>
+              </div>
+            </Col>
+          )}
         </Row>
         
         {!selectedPlayer && (
@@ -340,11 +414,6 @@ function Dashboard() {
                     </span>
                   )}
                 </h2>
-                {dateRange && dateRange[0] && dateRange[1] && (
-                  <p style={{ margin: 0, color: '#666' }}>
-                    Period: {dateRange[0].format('MMM D, YYYY')} - {dateRange[1].format('MMM D, YYYY')}
-                  </p>
-                )}
                 {matchType && !selectedOpponent && (
                   <p style={{ margin: 0, color: '#666' }}>
                     Match type: {matchType === '1v1' ? '1v1 Matches' : 'Team Matches'}

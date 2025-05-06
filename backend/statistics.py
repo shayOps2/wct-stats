@@ -91,12 +91,16 @@ async def calculate_player_stats(
     }
     
     # Add date filters if provided
-    if start_date or end_date:
-        query["date"] = {}
-        if start_date:
-            query["date"]["$gte"] = start_date
-        if end_date:
-            query["date"]["$lte"] = end_date
+    if start_date:
+        query["date"] = {"$gte": start_date}
+        
+        # If end_date is not provided, use today's date as the end_date
+        if not end_date:
+            end_date = datetime.now()
+            
+        query["date"]["$lte"] = end_date
+    elif end_date:  # Only end_date is provided without start_date
+        query["date"] = {"$lte": end_date}
     
     # Add match type filter if provided
     if match_type:
@@ -122,12 +126,16 @@ async def calculate_player_stats(
         }
         
         # Re-apply date filters if present
-        if start_date or end_date:
-            query["date"] = {}
-            if start_date:
-                query["date"]["$gte"] = start_date
-            if end_date:
-                query["date"]["$lte"] = end_date
+        if start_date:
+            query["date"] = {"$gte": start_date}
+            
+            # If end_date is not provided, use today's date
+            if not end_date:
+                end_date = datetime.now()
+                
+            query["date"]["$lte"] = end_date
+        elif end_date:  # Only end_date is provided
+            query["date"] = {"$lte": end_date}
                 
         # Re-apply match type filter if present
         if match_type:
