@@ -6,6 +6,8 @@ from typing import Optional
 from fastapi import Body
 from database import get_gridfs
 import bson
+from datetime import datetime
+from statistics import calculate_player_stats
 
 router = APIRouter()
 
@@ -98,3 +100,50 @@ async def remove_player(player_id: str):
     # Delete player
     success = await delete_player(player_id)
     return {"status": "deleted"}
+
+@router.get("/{player_id}/stats")
+async def get_player_statistics(
+    player_id: str,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    match_type: Optional[str] = None
+):
+    """Get player statistics with optional filters"""
+    # Verify player exists
+    player = await get_player(player_id)
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+    
+    # Calculate stats
+    stats = await calculate_player_stats(
+        player_id=player_id,
+        start_date=start_date,
+        end_date=end_date,
+        match_type=match_type
+    )
+    
+    return stats.to_dict()
+
+@router.get("/{player_id}/versus/{opponent_id}")
+async def get_versus_statistics(
+    player_id: str,
+    opponent_id: str,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None
+):
+    """Get head-to-head statistics between two players"""
+    # Verify both players exist
+    player = await get_player(player_id)
+    opponent = await get_player(opponent_id)
+    if not player or not opponent:
+        raise HTTPException(status_code=404, detail="Player not found")
+    
+    # Calculate head-to-head stats
+    stats = await calculate_player_stats(
+        player_id=player_id,
+        start_date=start_date,
+        end_date=end_date,
+        opponent_id=opponent_id
+    )
+    
+    return stats.to_dict()

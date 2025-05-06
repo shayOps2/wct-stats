@@ -3,7 +3,7 @@ from database import db
 from models import Player, Match, QuadMap, Round
 from bson import ObjectId
 import bson
-from typing import List
+from typing import List, Optional, Dict, Any
 
 def player_helper(player) -> dict:
     return {
@@ -161,11 +161,13 @@ def match_to_document(match: Match):
     
     return doc
 
-async def get_matches():
+async def get_matches(query: Optional[Dict[str, Any]] = None):
     matches = []
-    cursor = db["matches"].find()
+    cursor = db["matches"].find(query or {})
     async for document in cursor:
-        matches.append(document_to_match(document))
+        match = document_to_match(document)
+        if match:  # Only append if successfully converted
+            matches.append(match)
     return matches
 
 async def get_match(match_id: str):

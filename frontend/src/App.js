@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Route, Routes, Link } from "react-router-dom";
 import Players from "./pages/Players";
 import Matches from "./pages/Matches";
 import QuadMap from "./pages/QuadMap";
+import Dashboard from "./pages/Dashboard";
+import 'antd/dist/reset.css';
 
 function App() {
   return (
@@ -17,7 +19,7 @@ function App() {
         <Route path="/players" element={<Players />} />
         <Route path="/matches" element={<Matches />} />
         <Route path="/quadmap" element={<QuadMap />} />
-        <Route path="/" element={<div style={{ padding: 24 }}><h2>Dashboard</h2><p>Welcome to the World Chase Tag Stats App!</p></div>} />
+        <Route path="/" element={<Dashboard />} />
       </Routes>
     </Router>
   );
