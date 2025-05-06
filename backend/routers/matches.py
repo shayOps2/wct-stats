@@ -311,8 +311,13 @@ async def add_round(
             score_diff = match.team1_score - match.team2_score  # Positive if player1 is winning
             logger.info(f"Round 3 Check - Score Difference: {score_diff}")
             
+            # Check if the score difference is too large for the next round to matter
+            if abs(score_diff) > 1:
+                logger.info(f"Match ending after round 3 - Score difference of {abs(score_diff)} too large to overcome in one more round")
+                match.is_completed = True
+                match.winner = match.player1.name if score_diff > 0 else match.player2.name
             # In round 4, player2 evades (odd round)
-            if score_diff > 0 and str(match.player1.id) == str(chaser.id):  # Player 1 winning and just chased
+            elif score_diff > 0 and str(match.player1.id) == str(chaser.id):  # Player 1 winning and just chased
                 logger.info("Match ending after round 3 - Player 1 winning and Player 2 would evade next")
                 match.is_completed = True
                 match.winner = match.player1.name

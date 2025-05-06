@@ -156,6 +156,16 @@ function Matches() {
       if (match.is_sudden_death) {
         return roundCount < 6;  // 4 regular rounds + 2 sudden death rounds
       }
+      
+      // Early termination check after round 3
+      if (roundCount === 3) {
+        // If score difference is greater than 1, match is already decided
+        const scoreDiff = Math.abs(match.team1_score - match.team2_score);
+        if (scoreDiff > 1) {
+          return false; // Match should be completed
+        }
+      }
+      
       return roundCount < 4;  // Regular 1v1 has 4 rounds
     }
   };
