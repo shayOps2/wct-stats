@@ -22,6 +22,7 @@ function Matches() {
     evading_team: ""
   });
   const [showRounds, setShowRounds] = useState(true);
+  const [editingRound, setEditingRound] = useState(null);
 
   // Fetch matches and players on component mount
   useEffect(() => {
@@ -156,6 +157,65 @@ function Matches() {
         return roundCount < 6;  // 4 regular rounds + 2 sudden death rounds
       }
       return roundCount < 4;  // Regular 1v1 has 4 rounds
+    }
+  };
+
+  const handleEditRound = async (e) => {
+    e.preventDefault();
+    if (!selectedMatch || !editingRound) return;
+    
+    try {
+      const response = await fetch(`/matches/${selectedMatch.id}/rounds/${editingRound.index}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tag_made: editingRound.tag_made,
+          tag_time: editingRound.tag_made ? parseFloat(editingRound.tag_time) : null,
+          video_url: null,
+          tag_location: null
+        }),
+      });
+
+      if (response.ok) {
+        const updatedMatch = await response.json();
+        setMatches(matches.map(m => m.id === updatedMatch.id ? updatedMatch : m));
+        setSelectedMatch(updatedMatch);
+        setEditingRound(null);
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.detail || 'Failed to update round'}`);
+      }
+    } catch (error) {
+      console.error("Error updating round:", error);
+      alert("An error occurred while updating the round");
+    }
+  };
+
+  const handleDeleteLastRound = async () => {
+    if (!selectedMatch || !selectedMatch.rounds || selectedMatch.rounds.length === 0) return;
+    
+    if (!window.confirm("Are you sure you want to delete the last round?")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/matches/${selectedMatch.id}/rounds/last`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        const updatedMatch = await response.json();
+        setMatches(matches.map(m => m.id === updatedMatch.id ? updatedMatch : m));
+        setSelectedMatch(updatedMatch);
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.detail || 'Failed to delete round'}`);
+      }
+    } catch (error) {
+      console.error("Error deleting round:", error);
+      alert("An error occurred while deleting the round");
     }
   };
 
@@ -902,37 +962,94 @@ function Matches() {
                 >
                   {showRounds ? 'Hide' : 'Show'}
                 </button>
+                {showRounds && selectedMatch?.rounds?.length > 0 && !selectedMatch.is_completed && !selectedMatch.is_sudden_death && (
+                  <button 
+                    onClick={handleDeleteLastRound}
+                    style={{ marginLeft: 8, padding: '2px 8px', background: '#f55', color: 'white', border: 'none', borderRadius: '4px' }}
+                  >
+                    Delete Last Round
+                  </button>
+                )}
               </div>
               
               {showRounds && selectedMatch.rounds?.map((round, index) => (
                 <div key={index} style={{ marginBottom: 8, padding: 8, border: "1px solid #eee", borderRadius: 4 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>Round {index + 1} {selectedMatch.is_sudden_death && index >= (selectedMatch.match_type === "team" ? 16 : 4) && "(Sudden Death)"}</div>
-                    {!selectedMatch.is_completed && !selectedMatch.is_sudden_death && (
-                      <button 
-                        onClick={() => {
-                          setRoundData({
-                            chaser_id: round.chaser.id,
-                            evader_id: round.evader.id,
-                            tag_made: round.tag_made,
-                            tag_time: round.tag_time || 0
-                          });
-                        }}
-                        style={{ 
-                          padding: '2px 8px',
-                          opacity: selectedMatch.is_completed || selectedMatch.is_sudden_death ? 0.5 : 1,
-                          cursor: selectedMatch.is_completed || selectedMatch.is_sudden_death ? 'not-allowed' : 'pointer'
-                        }}
-                      >
-                        Edit
-                      </button>
-                    )}
-                  </div>
-                  <div>Chaser: {round.chaser.name}</div>
-                  <div>Evader: {round.evader.name}</div>
-                  <div>Result: {round.tag_made 
-                    ? `Tagged at ${round.tag_time}s` 
-                    : "Evaded (20s)"}</div>
+                  {editingRound && editingRound.index === index ? (
+                    // Editing form for round
+                    <form onSubmit={handleEditRound}>
+                      <div style={{ marginBottom: 8 }}>
+                        <strong>Round {index + 1} {selectedMatch.is_sudden_death && index >= (selectedMatch.match_type === "team" ? 16 : 4) && "(Sudden Death)"}</strong>
+                      </div>
+                      <div style={{ marginBottom: 4 }}>
+                        <strong>Chaser:</strong> {round.chaser.name}
+                      </div>
+                      <div style={{ marginBottom: 4 }}>
+                        <strong>Evader:</strong> {round.evader.name}
+                      </div>
+                      <div style={{ marginBottom: 8 }}>
+                        <strong>Result:</strong> {round.tag_made ? "Tagged" : "Evaded"}
+                        {round.tag_made && (
+                          <>
+                            <strong style={{ marginLeft: 8 }}>Tag Time:</strong>
+                            <input
+                              type="number"
+                              value={editingRound.tag_time}
+                              onChange={(e) => setEditingRound({
+                                ...editingRound,
+                                tag_time: e.target.value
+                              })}
+                              min="0"
+                              max="20"
+                              step="0.1"
+                              style={{ marginLeft: 4, width: '60px' }}
+                              required
+                            />
+                            <span style={{ marginLeft: 4 }}>seconds</span>
+                          </>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button type="submit">Save</button>
+                        <button 
+                          type="button" 
+                          onClick={() => setEditingRound(null)}
+                          style={{ background: '#ccc' }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    // Normal round display
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>Round {index + 1} {selectedMatch.is_sudden_death && index >= (selectedMatch.match_type === "team" ? 16 : 4) && "(Sudden Death)"}</div>
+                        {!selectedMatch.is_completed && !selectedMatch.is_sudden_death && round.tag_made && (
+                          <button 
+                            onClick={() => setEditingRound({
+                              index,
+                              tag_made: round.tag_made,
+                              tag_time: round.tag_time
+                            })}
+                            style={{ 
+                              padding: '2px 8px',
+                              fontSize: '0.8em',
+                              background: '#f0f0f0',
+                              border: '1px solid #ccc',
+                              borderRadius: '3px'
+                            }}
+                          >
+                            Edit Time
+                          </button>
+                        )}
+                      </div>
+                      <div>Chaser: {round.chaser.name}</div>
+                      <div>Evader: {round.evader.name}</div>
+                      <div>Result: {round.tag_made 
+                        ? `Tagged at ${round.tag_time}s` 
+                        : "Evaded (20s)"}</div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>

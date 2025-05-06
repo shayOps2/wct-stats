@@ -446,3 +446,95 @@ async def update_match(
     if not result:
         raise HTTPException(status_code=500, detail="Failed to update match")
     return result
+
+@router.delete("/{match_id}/rounds/last")
+async def delete_last_round(match_id: str):
+    """Delete the last round of a match if it's not completed or in sudden death."""
+    match = await get_match(match_id)
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    
+    # Check if match is completed or in sudden death
+    if match.is_completed:
+        raise HTTPException(status_code=400, detail="Cannot delete rounds from a completed match")
+    if match.is_sudden_death:
+        raise HTTPException(status_code=400, detail="Cannot delete rounds once sudden death has started")
+    
+    # Check if match has rounds
+    if not match.rounds or len(match.rounds) == 0:
+        raise HTTPException(status_code=400, detail="Match has no rounds to delete")
+    
+    # Remove last round
+    last_round = match.rounds.pop()
+    logger.info(f"Deleting last round from match {match_id}: {last_round.model_dump()}")
+    
+    # Update score if needed
+    if not last_round.tag_made:  # If it was a successful evasion, subtract points
+        if match.match_type == "team":
+            evader_in_team1 = any(str(p.id) == str(last_round.evader.id) for p in match.team1_players)
+            if evader_in_team1:
+                match.team1_score -= 1
+            else:
+                match.team2_score -= 1
+        else:  # 1v1
+            if str(last_round.evader.id) == str(match.player1.id):
+                match.team1_score -= 1
+            else:
+                match.team2_score -= 1
+    
+    # Update match in database
+    result = await add_match(match)
+    if not result:
+        raise HTTPException(status_code=500, detail="Failed to update match")
+    
+    return result
+
+@router.put("/{match_id}/rounds/{round_index}")
+async def update_round(
+    match_id: str,
+    round_index: int,
+    tag_made: bool = Body(...),
+    tag_time: Optional[float] = Body(None),
+    video_url: str = Body(None),
+    tag_location: dict = Body(None)
+):
+    """
+    Update a specific round of a match. Only allows changing tag_time for same result (tag/evasion).
+    Cannot change players or change the outcome (tag/no tag).
+    """
+    match = await get_match(match_id)
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    
+    # Check if match is completed or in sudden death
+    if match.is_completed:
+        raise HTTPException(status_code=400, detail="Cannot edit rounds in a completed match")
+    if match.is_sudden_death:
+        raise HTTPException(status_code=400, detail="Cannot edit rounds once sudden death has started")
+    
+    # Check if round index is valid
+    if round_index < 0 or round_index >= len(match.rounds):
+        raise HTTPException(status_code=404, detail="Round not found")
+    
+    # Get the round to update
+    round_to_update = match.rounds[round_index]
+    
+    # Ensure we're not changing the tag/evasion outcome
+    if tag_made != round_to_update.tag_made:
+        raise HTTPException(status_code=400, detail="Cannot change the tag/evasion outcome of a round")
+    
+    # Validate tag_time for tags
+    if tag_made and (tag_time is None or tag_time < 0 or tag_time > 20):
+        raise HTTPException(status_code=400, detail="Valid tag_time (0-20 seconds) is required when tag_made is true")
+    
+    # Update allowed fields
+    round_to_update.tag_time = tag_time if tag_made else None
+    round_to_update.video_url = video_url
+    round_to_update.tag_location = tag_location
+    
+    # Update match in database
+    result = await add_match(match)
+    if not result:
+        raise HTTPException(status_code=500, detail="Failed to update match")
+    
+    return result
