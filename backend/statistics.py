@@ -104,15 +104,34 @@ async def calculate_player_stats(
     
     # Add opponent filter if provided
     if opponent_id:
-        query["$and"] = [
-            query,  # Include existing conditions
-            {
-                "$or": [
-                    {"rounds.evader.id": opponent_id},
-                    {"rounds.chaser.id": opponent_id}
-                ]
-            }
-        ]
+        # Use elemMatch to find rounds with both the player and opponent
+        # This avoids the recursive reference problem
+        query = {
+            "$or": [
+                # Match rounds where player is evader and opponent is chaser
+                {"rounds": {"$elemMatch": {
+                    "evader.id": player_id,
+                    "chaser.id": opponent_id
+                }}},
+                # Match rounds where player is chaser and opponent is evader
+                {"rounds": {"$elemMatch": {
+                    "chaser.id": player_id,
+                    "evader.id": opponent_id
+                }}}
+            ]
+        }
+        
+        # Re-apply date filters if present
+        if start_date or end_date:
+            query["date"] = {}
+            if start_date:
+                query["date"]["$gte"] = start_date
+            if end_date:
+                query["date"]["$lte"] = end_date
+                
+        # Re-apply match type filter if present
+        if match_type:
+            query["match_type"] = match_type
     
     # Get matches with the optimized query
     matches = await get_matches(query)
