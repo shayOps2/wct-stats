@@ -176,15 +176,30 @@ async def add_round(
     
     # Validate players based on match type
     if match.match_type == "1v1":
-        # For 1v1, determine who should be chasing/evading based on round number
         current_round = len(match.rounds)
         logger.info(f"1v1 Match - Current Round: {current_round}")
-        if current_round % 2 == 0:  # Even rounds (0, 2) - player1 evades
-            if str(evader.id) != str(match.player1.id) or str(chaser.id) != str(match.player2.id):
-                raise HTTPException(status_code=400, detail="Invalid player roles for this round. Player 1 should be evading.")
-        else:  # Odd rounds (1, 3) - player2 evades
-            if str(evader.id) != str(match.player2.id) or str(chaser.id) != str(match.player1.id):
-                raise HTTPException(status_code=400, detail="Invalid player roles for this round. Player 2 should be evading.")
+        
+        # For the first round, either player can be the evader
+        if current_round == 0:
+            # Just verify that the chaser is the other player
+            if not ((str(evader.id) == str(match.player1.id) and str(chaser.id) == str(match.player2.id)) or
+                    (str(evader.id) == str(match.player2.id) and str(chaser.id) == str(match.player1.id))):
+                raise HTTPException(status_code=400, detail="Chaser and evader must be the two players in the match")
+        else:
+            # For subsequent rounds, evaders alternate based on who evaded in the first round
+            first_round = match.rounds[0]
+            first_evader_was_player1 = str(first_round.evader.id) == str(match.player1.id)
+            
+            if current_round % 2 == 0:  # Even rounds (2, 4) - same player as first round evades
+                expected_evader_id = str(match.player1.id) if first_evader_was_player1 else str(match.player2.id)
+                expected_chaser_id = str(match.player2.id) if first_evader_was_player1 else str(match.player1.id)
+            else:  # Odd rounds (1, 3) - other player evades
+                expected_evader_id = str(match.player2.id) if first_evader_was_player1 else str(match.player1.id)
+                expected_chaser_id = str(match.player1.id) if first_evader_was_player1 else str(match.player2.id)
+            
+            if str(evader.id) != expected_evader_id or str(chaser.id) != expected_chaser_id:
+                raise HTTPException(status_code=400, 
+                    detail=f"Invalid player roles for this round. Expected evader: {expected_evader_id}, chaser: {expected_chaser_id}")
     else:  # team match
         # Verify players are on different teams
         evader_in_team1 = any(str(p.id) == str(evader.id) for p in match.team1_players)

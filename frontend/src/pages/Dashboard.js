@@ -4,7 +4,6 @@ import { Card, Row, Col, Table, Spin, Alert } from "antd";
 function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [players, setPlayers] = useState([]);
   const [topPlayers, setTopPlayers] = useState({
     evaders: [],
     chasers: []
@@ -20,7 +19,6 @@ function Dashboard() {
       // Fetch all players
       const response = await fetch('/players/');
       const playerList = await response.json();
-      setPlayers(playerList);
 
       // Fetch stats for each player
       const playersWithStats = await Promise.all(

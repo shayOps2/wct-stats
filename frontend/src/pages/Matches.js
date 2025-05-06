@@ -22,7 +22,6 @@ function Matches() {
     evading_team: ""
   });
   const [showRounds, setShowRounds] = useState(true);
-  const [editingRoundIndex, setEditingRoundIndex] = useState(null);
 
   // Fetch matches and players on component mount
   useEffect(() => {
@@ -124,50 +123,6 @@ function Matches() {
         tag_made: false,
         tag_time: 0
       });
-    }
-  };
-
-  const handleEditRound = async (matchId, roundIndex, editedRound) => {
-    const match = matches.find(m => m.id === matchId);
-    if (!match) return;
-
-    const updatedRounds = [...match.rounds];
-    updatedRounds[roundIndex] = {
-      ...updatedRounds[roundIndex],
-      ...editedRound,
-      tag_time: editedRound.tag_made ? parseFloat(editedRound.tag_time) : null
-    };
-
-    const response = await fetch(`/matches/${matchId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        ...match,
-        rounds: updatedRounds
-      }),
-    });
-
-    if (response.ok) {
-      const updatedMatch = await response.json();
-      setMatches(matches.map(m => m.id === updatedMatch.id ? updatedMatch : m));
-      setSelectedMatch(updatedMatch);
-      setEditingRoundIndex(null);
-    }
-  };
-
-  // Get available players for round based on match type
-  const getAvailablePlayers = () => {
-    if (!selectedMatch) return [];
-    
-    if (selectedMatch.match_type === "team") {
-      return [
-        ...(selectedMatch.team1_players || []),
-        ...(selectedMatch.team2_players || [])
-      ];
-    } else {
-      return [selectedMatch.player1, selectedMatch.player2].filter(Boolean);
     }
   };
 
@@ -398,14 +353,57 @@ function Matches() {
                 setSelectedMatch(match);
                 // Initialize roundData based on match type and state
                 if (match.match_type === "1v1") {
-                  const isEvenRound = match.rounds.length % 2 === 0;
-                  setRoundData({
-                    chaser_id: isEvenRound ? match.player2.id : match.player1.id,
-                    evader_id: isEvenRound ? match.player1.id : match.player2.id,
-                    tag_made: false,
-                    tag_time: 0,
-                    evading_team: ""
-                  });
+                  if (match.rounds.length === 0) {
+                    // For first round, let the user choose
+                    setRoundData({
+                      chaser_id: "",
+                      evader_id: "",
+                      tag_made: false,
+                      tag_time: 0,
+                      evading_team: ""
+                    });
+                  } else if (match.is_sudden_death) {
+                    if (match.rounds.length === 4) {
+                      // First sudden death round - allow player selection
+                      setRoundData({
+                        chaser_id: "",
+                        evader_id: "",
+                        tag_made: false,
+                        tag_time: 0,
+                        evading_team: ""
+                      });
+                    } else if (match.rounds.length === 5) {
+                      // Second sudden death round - previous chaser becomes evader
+                      const firstSuddenDeathRound = match.rounds[4];
+                      setRoundData({
+                        evader_id: firstSuddenDeathRound.chaser.id,
+                        chaser_id: firstSuddenDeathRound.evader.id,
+                        tag_made: false,
+                        tag_time: 0,
+                        evading_team: ""
+                      });
+                    }
+                  } else {
+                    // Regular rounds - determine based on first round pattern
+                    const firstRound = match.rounds[0];
+                    const firstEvaderWasPlayer1 = firstRound.evader.id === match.player1.id;
+                    const currentRound = match.rounds.length;
+                    let nextEvader;
+                    
+                    if (currentRound % 2 === 0) { // Even rounds (2, 4) - same as first round
+                      nextEvader = firstEvaderWasPlayer1 ? match.player1 : match.player2;
+                    } else { // Odd rounds (1, 3) - opposite of first round
+                      nextEvader = firstEvaderWasPlayer1 ? match.player2 : match.player1;
+                    }
+                    
+                    setRoundData({
+                      evader_id: nextEvader.id,
+                      chaser_id: nextEvader.id === match.player1.id ? match.player2.id : match.player1.id,
+                      tag_made: false,
+                      tag_time: 0,
+                      evading_team: ""
+                    });
+                  }
                 } else {
                   // For team matches
                   const lastRound = match.rounds[match.rounds.length - 1];
@@ -696,25 +694,64 @@ function Matches() {
                             ) : (
                               // Regular 1v1 rounds
                               <>
-                                <input
-                                  type="text"
-                                  value={selectedMatch.rounds.length % 2 === 0 ? selectedMatch.player1.name : selectedMatch.player2.name}
-                                  disabled
-                                  style={{ marginLeft: 8 }}
-                                />
-                                {/* Hidden input and auto-set logic for regular rounds */}
-                                {(() => {
-                                  if (roundData.evader_id === "") {
-                                    setTimeout(() => {
-                                      setRoundData(prev => ({
-                                        ...prev,
-                                        evader_id: selectedMatch.rounds.length % 2 === 0 ? selectedMatch.player1.id : selectedMatch.player2.id,
-                                        chaser_id: selectedMatch.rounds.length % 2 === 0 ? selectedMatch.player2.id : selectedMatch.player1.id
-                                      }));
-                                    }, 0);
-                                  }
-                                  return null;
-                                })()}
+                                {selectedMatch.rounds.length === 0 ? (
+                                  // First round - allow user to select who evades first
+                                  <select
+                                    value={roundData.evader_id}
+                                    onChange={(e) => {
+                                      const evaderId = e.target.value;
+                                      setRoundData({
+                                        ...roundData,
+                                        evader_id: evaderId,
+                                        // Set chaser automatically to the other player
+                                        chaser_id: evaderId === selectedMatch.player1.id ? 
+                                          selectedMatch.player2.id : selectedMatch.player1.id
+                                      });
+                                    }}
+                                    style={{ marginLeft: 8 }}
+                                    required
+                                  >
+                                    <option value="">Select First Evader</option>
+                                    <option value={selectedMatch.player1.id}>{selectedMatch.player1.name}</option>
+                                    <option value={selectedMatch.player2.id}>{selectedMatch.player2.name}</option>
+                                  </select>
+                                ) : (
+                                  // Subsequent rounds - determine based on first round pattern
+                                  (() => {
+                                    const firstRound = selectedMatch.rounds[0];
+                                    const firstEvaderWasPlayer1 = firstRound.evader.id === selectedMatch.player1.id;
+                                    const currentRound = selectedMatch.rounds.length;
+                                    
+                                    // Determine current evader based on round number and first evader
+                                    let currentEvader;
+                                    if (currentRound % 2 === 0) { // Even rounds (2, 4) - same as first round
+                                      currentEvader = firstEvaderWasPlayer1 ? selectedMatch.player1 : selectedMatch.player2;
+                                    } else { // Odd rounds (1, 3) - opposite of first round
+                                      currentEvader = firstEvaderWasPlayer1 ? selectedMatch.player2 : selectedMatch.player1;
+                                    }
+                                    
+                                    // Auto-set the evader and chaser if not set
+                                    if (roundData.evader_id === "") {
+                                      setTimeout(() => {
+                                        setRoundData({
+                                          ...roundData,
+                                          evader_id: currentEvader.id,
+                                          chaser_id: currentEvader.id === selectedMatch.player1.id ? 
+                                            selectedMatch.player2.id : selectedMatch.player1.id
+                                        });
+                                      }, 0);
+                                    }
+                                    
+                                    return (
+                                      <input
+                                        type="text"
+                                        value={currentEvader.name}
+                                        disabled
+                                        style={{ marginLeft: 8 }}
+                                      />
+                                    );
+                                  })()
+                                )}
                               </>
                             )}
                           </>
@@ -778,7 +815,12 @@ function Matches() {
                               // Regular 1v1 rounds
                               <input
                                 type="text"
-                                value={selectedMatch.rounds.length % 2 === 0 ? selectedMatch.player2.name : selectedMatch.player1.name}
+                                value={
+                                  roundData.chaser_id ? 
+                                    (roundData.chaser_id === selectedMatch.player1.id ? 
+                                      selectedMatch.player1.name : selectedMatch.player2.name)
+                                    : "Select evader first"
+                                }
                                 disabled
                                 style={{ marginLeft: 8 }}
                               />
@@ -875,7 +917,6 @@ function Matches() {
                             tag_made: round.tag_made,
                             tag_time: round.tag_time || 0
                           });
-                          setEditingRoundIndex(index);
                         }}
                         style={{ 
                           padding: '2px 8px',
