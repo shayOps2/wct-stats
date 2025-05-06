@@ -11,6 +11,52 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+def calculate_sudden_death_winner(match, sd_round1, sd_round2):
+    """
+    Calculate the winner of a sudden death based on evasion times.
+    Works for both team and 1v1 matches.
+    
+    Args:
+        match: Match object
+        sd_round1: First sudden death round
+        sd_round2: Second sudden death round
+    
+    Returns:
+        tuple: (winner_name, time1, time2) where times are the evasion times for each team/player
+    """
+    logger.info("Calculating sudden death winner based on evasion times")
+    
+    # Calculate evasion times (20 seconds for successful evasion)
+    if match.match_type == "team":
+        # For team matches, each round represents one team's evasion
+        time1 = 20 if not sd_round1.tag_made else sd_round1.tag_time
+        time2 = 20 if not sd_round2.tag_made else sd_round2.tag_time
+        name1 = match.team1_name
+        name2 = match.team2_name
+    else:  # 1v1
+        # For 1v1, need to check which player was evading in each round
+        time1 = 20 if not sd_round1.tag_made and str(sd_round1.evader.id) == str(match.player1.id) else (
+            20 if not sd_round2.tag_made and str(sd_round2.evader.id) == str(match.player1.id) else (
+                sd_round1.tag_time if str(sd_round1.evader.id) == str(match.player1.id) else sd_round2.tag_time
+            )
+        )
+        time2 = 20 if not sd_round1.tag_made and str(sd_round1.evader.id) == str(match.player2.id) else (
+            20 if not sd_round2.tag_made and str(sd_round2.evader.id) == str(match.player2.id) else (
+                sd_round1.tag_time if str(sd_round1.evader.id) == str(match.player2.id) else sd_round2.tag_time
+            )
+        )
+        name1 = match.player1.name
+        name2 = match.player2.name
+    
+    logger.info(f"Sudden Death Times - {name1}: {time1}s, {name2}: {time2}s")
+    
+    if time1 > time2:
+        return name1, time1, time2
+    elif time2 > time1:
+        return name2, time1, time2
+    else:
+        return "Draw", time1, time2
+
 @router.get("/")
 async def list_matches():
     return await get_matches()
@@ -75,6 +121,10 @@ async def create_match(
     else:  # 1v1
         if not all([player1_id, player2_id]):
             raise HTTPException(status_code=400, detail="Missing player information")
+        
+        # Prevent same player being selected for both sides
+        if player1_id == player2_id:
+            raise HTTPException(status_code=400, detail="Cannot select the same player for both sides in 1v1 match")
         
         # Get player objects
         player1 = await get_player(player1_id)
@@ -235,24 +285,10 @@ async def add_round(
         
         # Handle sudden death completion
         if match.is_sudden_death and len(match.rounds) >= max_rounds + 2:
-            logger.info("Calculating sudden death winner based on evasion times")
-            # Get the two sudden death rounds
-            sd_round1 = match.rounds[max_rounds]
-            sd_round2 = match.rounds[max_rounds + 1]
-            
-            # Calculate evasion times (20 seconds for successful evasion)
-            team1_time = 20 if not sd_round1.tag_made else sd_round1.tag_time
-            team2_time = 20 if not sd_round2.tag_made else sd_round2.tag_time
-            
-            logger.info(f"Sudden Death Times - {match.team1_name}: {team1_time}s, {match.team2_name}: {team2_time}s")
+            sd_round1 = match.rounds[max_rounds]    # First sudden death round
+            sd_round2 = match.rounds[max_rounds + 1] # Second sudden death round
+            match.winner, time1, time2 = calculate_sudden_death_winner(match, sd_round1, sd_round2)
             match.is_completed = True
-            if team1_time > team2_time:
-                match.winner = match.team1_name
-            elif team2_time > team1_time:
-                match.winner = match.team2_name
-            else:
-                # If times are equal, both teams showed equal skill
-                match.winner = "Draw"
     else:  # 1v1
         logger.info(f"1v1 Match State - Rounds: {len(match.rounds)}, Score: {match.team1_score}-{match.team2_score}, Sudden Death: {match.is_sudden_death}")
         
@@ -282,9 +318,10 @@ async def add_round(
                 match.is_completed = True
                 match.winner = match.player1.name if match.team1_score > match.team2_score else match.player2.name
         elif match.is_sudden_death and len(match.rounds) >= 6:  # After sudden death
-            logger.info("Match ending after sudden death rounds")
+            sd_round1 = match.rounds[4]    # First sudden death round
+            sd_round2 = match.rounds[5]    # Second sudden death round
+            match.winner, time1, time2 = calculate_sudden_death_winner(match, sd_round1, sd_round2)
             match.is_completed = True
-            match.winner = match.player1.name if match.team1_score > match.team2_score else match.player2.name
     
     # Update match in database
     result = await add_match(match)
@@ -310,6 +347,16 @@ async def update_match(
     existing_match = await get_match(match_id)
     if not existing_match:
         raise HTTPException(status_code=404, detail="Match not found")
+    
+    # Prevent editing rounds in completed matches or matches in sudden death
+    if existing_match.is_completed:
+        raise HTTPException(status_code=400, detail="Cannot edit rounds in a completed match")
+    if existing_match.is_sudden_death:
+        raise HTTPException(status_code=400, detail="Cannot edit rounds once sudden death has started")
+    
+    # Ensure the number of rounds hasn't changed
+    if len(match.rounds) != len(existing_match.rounds):
+        raise HTTPException(status_code=400, detail="Cannot add or remove rounds through edit, use the add round endpoint instead")
     
     # Ensure the ID matches
     match.id = match_id
@@ -362,24 +409,10 @@ async def update_match(
         
         # Handle sudden death completion
         if match.is_sudden_death and len(match.rounds) >= max_rounds + 2:
-            logger.info("Calculating sudden death winner based on evasion times")
-            # Get the two sudden death rounds
-            sd_round1 = match.rounds[max_rounds]
-            sd_round2 = match.rounds[max_rounds + 1]
-            
-            # Calculate evasion times (20 seconds for successful evasion)
-            team1_time = 20 if not sd_round1.tag_made else sd_round1.tag_time
-            team2_time = 20 if not sd_round2.tag_made else sd_round2.tag_time
-            
-            logger.info(f"Sudden Death Times - {match.team1_name}: {team1_time}s, {match.team2_name}: {team2_time}s")
+            sd_round1 = match.rounds[max_rounds]    # First sudden death round
+            sd_round2 = match.rounds[max_rounds + 1] # Second sudden death round
+            match.winner, time1, time2 = calculate_sudden_death_winner(match, sd_round1, sd_round2)
             match.is_completed = True
-            if team1_time > team2_time:
-                match.winner = match.team1_name
-            elif team2_time > team1_time:
-                match.winner = match.team2_name
-            else:
-                # If times are equal, both teams showed equal skill
-                match.winner = "Draw"
     else:  # 1v1
         if len(match.rounds) >= 4:
             if match.team1_score == match.team2_score:
@@ -388,8 +421,10 @@ async def update_match(
                 match.is_completed = True
                 match.winner = match.player1.name if match.team1_score > match.team2_score else match.player2.name
         elif match.is_sudden_death and len(match.rounds) >= 6:
+            sd_round1 = match.rounds[4]    # First sudden death round
+            sd_round2 = match.rounds[5]    # Second sudden death round
+            match.winner, time1, time2 = calculate_sudden_death_winner(match, sd_round1, sd_round2)
             match.is_completed = True
-            match.winner = match.player1.name if match.team1_score > match.team2_score else match.player2.name
     
     # Update match in database
     result = await add_match(match)

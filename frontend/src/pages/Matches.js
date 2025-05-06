@@ -864,98 +864,34 @@ function Matches() {
               
               {showRounds && selectedMatch.rounds?.map((round, index) => (
                 <div key={index} style={{ marginBottom: 8, padding: 8, border: "1px solid #eee", borderRadius: 4 }}>
-                  {editingRoundIndex === index ? (
-                    // Edit form
-                    <form onSubmit={(e) => {
-                      e.preventDefault();
-                      handleEditRound(selectedMatch.id, index, roundData);
-                    }}>
-                      <div style={{ marginBottom: 4 }}>
-                        <label>
-                          Chaser:
-                          <select
-                            value={roundData.chaser_id}
-                            onChange={(e) => setRoundData({ ...roundData, chaser_id: e.target.value })}
-                            required
-                          >
-                            {getAvailablePlayers().map(p => (
-                              <option key={p.id} value={p.id}>{p.name}</option>
-                            ))}
-                          </select>
-                        </label>
-                      </div>
-                      <div style={{ marginBottom: 4 }}>
-                        <label>
-                          Evader:
-                          <select
-                            value={roundData.evader_id}
-                            onChange={(e) => setRoundData({ ...roundData, evader_id: e.target.value })}
-                            required
-                          >
-                            {getAvailablePlayers().map(p => (
-                              <option key={p.id} value={p.id}>{p.name}</option>
-                            ))}
-                          </select>
-                        </label>
-                      </div>
-                      <div style={{ marginBottom: 4 }}>
-                        <label>
-                          Tag Made:
-                          <input
-                            type="checkbox"
-                            checked={roundData.tag_made}
-                            onChange={(e) => setRoundData({ ...roundData, tag_made: e.target.checked })}
-                          />
-                        </label>
-                      </div>
-                      {roundData.tag_made && (
-                        <div style={{ marginBottom: 4 }}>
-                          <label>
-                            Tag Time:
-                            <input
-                              type="number"
-                              value={roundData.tag_time}
-                              onChange={(e) => setRoundData({ ...roundData, tag_time: e.target.value })}
-                              min="0"
-                              max="20"
-                              step="0.1"
-                              required
-                            />
-                          </label>
-                        </div>
-                      )}
-                      <div>
-                        <button type="submit">Save</button>
-                        <button type="button" onClick={() => setEditingRoundIndex(null)}>Cancel</button>
-                      </div>
-                    </form>
-                  ) : (
-                    // Round display
-                    <>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>Round {index + 1} {selectedMatch.is_sudden_death && index >= (selectedMatch.match_type === "team" ? 16 : 4) && "(Sudden Death)"}</div>
-                        <button 
-                          onClick={() => {
-                            setRoundData({
-                              chaser_id: round.chaser.id,
-                              evader_id: round.evader.id,
-                              tag_made: round.tag_made,
-                              tag_time: round.tag_time || 0
-                            });
-                            setEditingRoundIndex(index);
-                          }}
-                          style={{ padding: '2px 8px' }}
-                        >
-                          Edit
-                        </button>
-                      </div>
-                      <div>Chaser: {round.chaser.name}</div>
-                      <div>Evader: {round.evader.name}</div>
-                      <div>Result: {round.tag_made 
-                        ? `Tagged at ${round.tag_time}s` 
-                        : "Evaded (20s)"}</div>
-                    </>
-                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>Round {index + 1} {selectedMatch.is_sudden_death && index >= (selectedMatch.match_type === "team" ? 16 : 4) && "(Sudden Death)"}</div>
+                    {!selectedMatch.is_completed && !selectedMatch.is_sudden_death && (
+                      <button 
+                        onClick={() => {
+                          setRoundData({
+                            chaser_id: round.chaser.id,
+                            evader_id: round.evader.id,
+                            tag_made: round.tag_made,
+                            tag_time: round.tag_time || 0
+                          });
+                          setEditingRoundIndex(index);
+                        }}
+                        style={{ 
+                          padding: '2px 8px',
+                          opacity: selectedMatch.is_completed || selectedMatch.is_sudden_death ? 0.5 : 1,
+                          cursor: selectedMatch.is_completed || selectedMatch.is_sudden_death ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
+                  <div>Chaser: {round.chaser.name}</div>
+                  <div>Evader: {round.evader.name}</div>
+                  <div>Result: {round.tag_made 
+                    ? `Tagged at ${round.tag_time}s` 
+                    : "Evaded (20s)"}</div>
                 </div>
               ))}
             </div>
