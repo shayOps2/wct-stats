@@ -19,16 +19,42 @@ function Matches() {
     evader_id: "",
     tag_made: false,
     tag_time: 0,
-    evading_team: ""
+    evading_team: "",
+    pinLocation: null
   });
   const [showRounds, setShowRounds] = useState(true);
   const [editingRound, setEditingRound] = useState(null);
+  const [currentMatchPins, setCurrentMatchPins] = useState([]);
 
   // Fetch matches and players on component mount
   useEffect(() => {
     fetchMatches();
     fetchPlayers();
   }, []);
+
+  // Step 2: Fetch pins when selectedMatch changes
+  useEffect(() => {
+    if (selectedMatch && selectedMatch.id) {
+      const fetchPinsForMatch = async () => {
+        try {
+          const response = await fetch(`/pins/?match_id=${selectedMatch.id}`);
+          if (response.ok) {
+            const pins = await response.json();
+            setCurrentMatchPins(pins);
+          } else {
+            console.error("Failed to fetch pins for match:", selectedMatch.id);
+            setCurrentMatchPins([]); // Reset if fetch fails
+          }
+        } catch (error) {
+          console.error("Error fetching pins:", error);
+          setCurrentMatchPins([]);
+        }
+      };
+      fetchPinsForMatch();
+    } else {
+      setCurrentMatchPins([]); // Clear pins if no match is selected
+    }
+  }, [selectedMatch]);
 
   const fetchMatches = async () => {
     const response = await fetch("/matches/");
@@ -107,9 +133,7 @@ function Matches() {
         evader_id: roundData.evader_id,
         tag_made: roundData.tag_made,
         tag_time: roundData.tag_made ? parseFloat(roundData.tag_time) : null,
-        video_url: null,
-        tag_location: null,
-        quad_map_id: null
+        video_url: null
       }),
     });
 
@@ -117,12 +141,39 @@ function Matches() {
       const updatedMatch = await response.json();
       setMatches(matches.map(m => m.id === updatedMatch.id ? updatedMatch : m));
       setSelectedMatch(updatedMatch);
+
+      // Save pin if location is set
+      if (roundData.tag_made && roundData.pinLocation) {
+        const newPin = {
+          location: roundData.pinLocation,
+          chaser_id: roundData.chaser_id,
+          evader_id: roundData.evader_id,
+          match_id: updatedMatch.id,
+          round_index: updatedMatch.rounds.length - 1,
+        };
+        try {
+          const pinResponse = await fetch('/pins/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newPin),
+          });
+          if (!pinResponse.ok) {
+            const pinError = await pinResponse.json();
+            console.error("Failed to save pin location:", pinError.detail || pinResponse.statusText);
+          }
+        } catch (pinError) {
+          console.error("Error saving pin:", pinError);
+        }
+      }
+
       // Reset round form
       setRoundData({
         chaser_id: "",
         evader_id: "",
         tag_made: false,
-        tag_time: 0
+        tag_time: 0,
+        evading_team: "",
+        pinLocation: null
       });
     }
   };
@@ -172,34 +223,163 @@ function Matches() {
 
   const handleEditRound = async (e) => {
     e.preventDefault();
-    if (!selectedMatch || !editingRound) return;
+    if (!selectedMatch || !editingRound || !editingRound.tag_made) {
+      // This function should only be callable if tag_made was true initially.
+      console.warn("handleEditRound called inappropriately or tag_made is false.");
+      setEditingRound(null);
+      return;
+    }
     
     try {
-      const response = await fetch(`/matches/${selectedMatch.id}/rounds/${editingRound.index}`, {
+      // Update only the tag_time in the match object for the specific round
+      const roundUpdatePayload = {
+        tag_time: parseFloat(editingRound.tag_time),
+        tag_made: editingRound.tag_made
+      };
+
+      const matchRoundUpdateResponse = await fetch(`/matches/${selectedMatch.id}/rounds/${editingRound.index}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tag_made: editingRound.tag_made,
-          tag_time: editingRound.tag_made ? parseFloat(editingRound.tag_time) : null,
-          video_url: null,
-          tag_location: null
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(roundUpdatePayload),
       });
 
-      if (response.ok) {
-        const updatedMatch = await response.json();
-        setMatches(matches.map(m => m.id === updatedMatch.id ? updatedMatch : m));
-        setSelectedMatch(updatedMatch);
-        setEditingRound(null);
-      } else {
-        const error = await response.json();
-        alert(`Error: ${error.detail || 'Failed to update round'}`);
+      if (!matchRoundUpdateResponse.ok) {
+        const error = await matchRoundUpdateResponse.json();
+        alert(`Error updating round tag time: ${error.detail || 'Failed to update round'}`);
+        return; 
       }
+
+      const updatedMatch = await matchRoundUpdateResponse.json();
+      setMatches(matches.map(m => m.id === updatedMatch.id ? updatedMatch : m));
+      setSelectedMatch(updatedMatch);
+      setEditingRound(null); // Clear editing state
+
     } catch (error) {
-      console.error("Error updating round:", error);
-      alert("An error occurred while updating the round");
+      console.error("Error in handleEditRound:", error);
+      alert("An error occurred while saving round changes.");
+    }
+  };
+
+  const handleUpdatePinLocation = async () => {
+    if (!selectedMatch || !editingRound) {
+      console.warn("handleUpdatePinLocation called inappropriately.");
+      return;
+    }
+
+    try {
+      const pinIdToManage = editingRound.existingPinId;
+      const newPinLocation = editingRound.pinLocation;
+      const chaserId = editingRound.originalChaserId;
+      const evaderId = editingRound.originalEvaderId;
+      const matchId = selectedMatch.id;
+      const roundIndex = editingRound.index;
+
+      // First, cleanup any potential duplicate pins for this match and round
+      if (currentMatchPins.length > 0) {
+        const pinsForThisRound = currentMatchPins.filter(
+          p => p.match_id === matchId && p.round_index === roundIndex
+        );
+        
+        // If we found multiple pins for this round, clean them up (keep only the one we're managing)
+        if (pinsForThisRound.length > 1) {
+          console.log(`Found ${pinsForThisRound.length} pins for match ${matchId}, round ${roundIndex}. Cleaning up duplicates...`);
+          
+          // Delete all pins for this round except the one we're managing (if it exists)
+          for (const pin of pinsForThisRound) {
+            if (pinIdToManage && pin.id === pinIdToManage) {
+              continue; // Skip the pin we're currently managing
+            }
+            
+            try {
+              console.log(`Deleting duplicate pin ${pin.id}`);
+              await fetch(`/pins/${pin.id}`, { method: 'DELETE' });
+            } catch (error) {
+              console.error(`Error deleting duplicate pin ${pin.id}:`, error);
+            }
+          }
+        }
+      }
+
+      if (editingRound.tag_made) {
+        if (pinIdToManage) {
+          // User wants a pin, and one existed: UPDATE IT
+          console.log(`Updating pin ${pinIdToManage} with location:`, newPinLocation);
+          try {
+            const pinUpdateResponse = await fetch(`/pins/${pinIdToManage}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ location: newPinLocation }),
+            });
+            if (!pinUpdateResponse.ok) {
+              const error = await pinUpdateResponse.json();
+              alert(`Failed to update pin location: ${error.detail || pinUpdateResponse.statusText}`);
+              return;
+            }
+          } catch (error) {
+            console.error("Error during pin update PUT request:", error);
+            alert("An error occurred while updating pin location.");
+            return;
+          }
+        } else if (newPinLocation) {
+          // User wants a pin, but none existed: CREATE IT
+          const pinToCreate = {
+            location: newPinLocation,
+            chaser_id: chaserId, 
+            evader_id: evaderId,
+            match_id: matchId,
+            round_index: roundIndex,
+          };
+          console.log("Creating new pin:", pinToCreate);
+          try {
+            const pinCreateResponse = await fetch(`/pins/`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(pinToCreate),
+            });
+            if (!pinCreateResponse.ok) {
+              const error = await pinCreateResponse.json();
+              alert(`Failed to create new pin: ${error.detail || pinCreateResponse.statusText}`);
+              return;
+            }
+          } catch (error) {
+            console.error("Error during pin create POST request:", error);
+            alert("An error occurred while creating pin.");
+            return;
+          }
+        }
+      } else if (pinIdToManage) {
+        // No pin wanted, but one existed: DELETE IT
+        console.log(`Deleting pin ${pinIdToManage}`);
+        try {
+          const pinDeleteResponse = await fetch(`/pins/${pinIdToManage}`, { method: 'DELETE' });
+          if (!pinDeleteResponse.ok && pinDeleteResponse.status !== 204) {
+            const error = await pinDeleteResponse.text();
+            alert(`Failed to delete pin: ${error}`);
+            return;
+          }
+        } catch (error) {
+          console.error("Error during pin delete DELETE request:", error);
+          alert("An error occurred while deleting pin.");
+          return;
+        }
+      }
+
+      // After successful pin operation, refetch pins for consistency
+      if (selectedMatch && selectedMatch.id) {
+        const pinsResponse = await fetch(`/pins/?match_id=${selectedMatch.id}`);
+        if (pinsResponse.ok) {
+          setCurrentMatchPins(await pinsResponse.json());
+          alert("Pin location updated successfully!");
+        }
+        else {
+          console.error("Failed to refetch pins after edit.");
+          alert("Pin updated but failed to refresh pin data.");
+        }
+      }
+      
+    } catch (error) {
+      console.error("Error in handleUpdatePinLocation:", error);
+      alert("An error occurred while saving pin location changes.");
     }
   };
 
@@ -430,7 +610,8 @@ function Matches() {
                       evader_id: "",
                       tag_made: false,
                       tag_time: 0,
-                      evading_team: ""
+                      evading_team: "",
+                      pinLocation: null
                     });
                   } else if (match.is_sudden_death) {
                     if (match.rounds.length === 4) {
@@ -440,7 +621,8 @@ function Matches() {
                         evader_id: "",
                         tag_made: false,
                         tag_time: 0,
-                        evading_team: ""
+                        evading_team: "",
+                        pinLocation: null
                       });
                     } else if (match.rounds.length === 5) {
                       // Second sudden death round - previous chaser becomes evader
@@ -450,7 +632,8 @@ function Matches() {
                         chaser_id: firstSuddenDeathRound.evader.id,
                         tag_made: false,
                         tag_time: 0,
-                        evading_team: ""
+                        evading_team: "",
+                        pinLocation: null
                       });
                     }
                   } else {
@@ -471,7 +654,8 @@ function Matches() {
                       chaser_id: nextEvader.id === match.player1.id ? match.player2.id : match.player1.id,
                       tag_made: false,
                       tag_time: 0,
-                      evading_team: ""
+                      evading_team: "",
+                      pinLocation: null
                     });
                   }
                 } else {
@@ -486,7 +670,8 @@ function Matches() {
                         evader_id: "",
                         tag_made: false,
                         tag_time: 0,
-                        evading_team: ""
+                        evading_team: "",
+                        pinLocation: null
                       });
                     } else if (match.rounds.length === 17) {
                       // Second sudden death round - set evading team to previous chasing team
@@ -497,7 +682,8 @@ function Matches() {
                         evader_id: "",
                         tag_made: false,
                         tag_time: 0,
-                        evading_team: chaserInTeam1 ? "team1" : "team2"
+                        evading_team: chaserInTeam1 ? "team1" : "team2",
+                        pinLocation: null
                       });
                     }
                   } else if (match.rounds.length === 0) {
@@ -507,7 +693,8 @@ function Matches() {
                       evader_id: "",
                       tag_made: false,
                       tag_time: 0,
-                      evading_team: ""
+                      evading_team: "",
+                      pinLocation: null
                     });
                   } else {
                     // Regular rounds - follow standard rules
@@ -519,7 +706,8 @@ function Matches() {
                       ) : "",
                       tag_made: false,
                       tag_time: 0,
-                      evading_team: ""
+                      evading_team: "",
+                      pinLocation: null
                     });
                   }
                 }
@@ -925,7 +1113,7 @@ function Matches() {
                     <input
                       type="checkbox"
                       checked={roundData.tag_made}
-                      onChange={(e) => setRoundData({ ...roundData, tag_made: e.target.checked })}
+                      onChange={(e) => setRoundData({ ...roundData, tag_made: e.target.checked, pinLocation: e.target.checked ? roundData.pinLocation : null })}
                       style={{ marginLeft: 8 }}
                     />
                   </label>
@@ -940,14 +1128,63 @@ function Matches() {
                         value={roundData.tag_time}
                         onChange={(e) => setRoundData({ ...roundData, tag_time: e.target.value })}
                         min="0"
-                        max="20"
                         step="0.1"
-                        style={{ marginLeft: 8 }}
+                        style={{ marginLeft: 8, width: 80 }}
                         required
                       />
                     </label>
                   </div>
                 )}
+
+                {/* PIN LOCATION LOGIC - START */}
+                {roundData.tag_made && (
+                  <div style={{ marginBottom: 16, marginTop: 8, padding: 8, border: '1px solid #eee', borderRadius: 4 }}>
+                    <label style={{ display: 'block', marginBottom: 4, fontWeight: 'bold' }}>
+                      Tag Location (Optional):
+                    </label>
+                    <div style={{ position: 'relative', width: '100%', maxWidth: '400px' }}>
+                      <img 
+                        src="/images/quad.jpg" 
+                        alt="Quad Map" 
+                        style={{ width: '100%', height: 'auto', cursor: 'pointer', border: '1px solid #ccc' }}
+                        onClick={(e) => {
+                          const rect = e.target.getBoundingClientRect();
+                          const x = e.clientX - rect.left;
+                          const y = e.clientY - rect.top;
+                          setRoundData({ ...roundData, pinLocation: { x: x, y: y } });
+                        }}
+                      />
+                      {roundData.pinLocation && (
+                        <div style={{
+                          position: 'absolute',
+                          left: `${roundData.pinLocation.x - 5}px`, 
+                          top: `${roundData.pinLocation.y - 5}px`,  
+                          width: '10px',
+                          height: '10px',
+                          backgroundColor: 'red',
+                          borderRadius: '50%',
+                          border: '1px solid white',
+                          pointerEvents: 'none' 
+                        }}></div>
+                      )}
+                    </div>
+                    {roundData.pinLocation && (
+                      <button 
+                        type="button" 
+                        onClick={() => setRoundData({ ...roundData, pinLocation: null })}
+                        style={{ marginTop: 8, fontSize: '0.9em' }}
+                      >
+                        Clear Pin Location
+                      </button>
+                    )}
+                    {!roundData.pinLocation && (
+                      <p style={{ fontSize: '0.9em', color: '#666', margin: '4px 0 0 0' }}>
+                        Click on the map to mark the tag location.
+                      </p>
+                    )}
+                  </div>
+                )}
+                {/* PIN LOCATION LOGIC - END */}
 
                 <button type="submit">Add Round</button>
               </form>
@@ -985,41 +1222,90 @@ function Matches() {
               {showRounds && selectedMatch.rounds?.map((round, index) => (
                 <div key={index} style={{ marginBottom: 8, padding: 8, border: "1px solid #eee", borderRadius: 4 }}>
                   {editingRound && editingRound.index === index ? (
-                    // Editing form for round
+                    // Editing form for round - REVISED to separate pin editing
                     <form onSubmit={handleEditRound}>
                       <div style={{ marginBottom: 8 }}>
                         <strong>Round {index + 1} {selectedMatch.is_sudden_death && index >= (selectedMatch.match_type === "team" ? 16 : 4) && "(Sudden Death)"}</strong>
                       </div>
-                      <div style={{ marginBottom: 4 }}>
-                        <strong>Chaser:</strong> {round.chaser.name}
+                      <div style={{ marginBottom: 4, fontSize: '0.9em', color: '#333' }}>
+                        Chaser: {editingRound.chaserName}, Evader: {editingRound.evaderName}
                       </div>
-                      <div style={{ marginBottom: 4 }}>
-                        <strong>Evader:</strong> {round.evader.name}
+                      <div style={{ marginBottom: 8, fontSize: '0.9em', color: '#333' }}>
+                        Original Result: Tagged {/* Since tag_made must be true to edit */}
                       </div>
+
                       <div style={{ marginBottom: 8 }}>
-                        <strong>Result:</strong> {round.tag_made ? "Tagged" : "Evaded"}
-                        {round.tag_made && (
-                          <>
-                            <strong style={{ marginLeft: 8 }}>Tag Time:</strong>
-                            <input
-                              type="number"
-                              value={editingRound.tag_time}
-                              onChange={(e) => setEditingRound({
-                                ...editingRound,
-                                tag_time: e.target.value
-                              })}
-                              min="0"
-                              max="20"
-                              step="0.1"
-                              style={{ marginLeft: 4, width: '60px' }}
-                              required
-                            />
-                            <span style={{ marginLeft: 4 }}>seconds</span>
-                          </>
+                        <label style={{ display: 'block', marginBottom: 4 }}>
+                          Tag Time (seconds):
+                          <input
+                            type="number"
+                            value={editingRound.tag_time}
+                            onChange={(e) => setEditingRound({ ...editingRound, tag_time: e.target.value })}
+                            min="0"
+                            step="0.1"
+                            style={{ marginLeft: 8, width: 80 }}
+                            required
+                          />
+                        </label>
+                      </div>
+
+                      {/* PIN LOCATION LOGIC FOR EDIT FORM - Always shown as tag_made is true here */}
+                      <div style={{ marginBottom: 16, marginTop: 8, padding: 8, border: '1px solid #eee', borderRadius: 4 }}>
+                        <label style={{ display: 'block', marginBottom: 4, fontWeight: 'bold' }}>
+                          Tag Location (Optional):
+                        </label>
+                        <div style={{ position: 'relative', width: '100%', maxWidth: '400px' }}>
+                          <img 
+                            src="/images/quad.jpg" 
+                            alt="Quad Map" 
+                            style={{ width: '100%', height: 'auto', cursor: 'pointer', border: '1px solid #ccc' }}
+                            onClick={(e) => {
+                              const rect = e.target.getBoundingClientRect();
+                              const x = e.clientX - rect.left;
+                              const y = e.clientY - rect.top;
+                              setEditingRound({ ...editingRound, pinLocation: { x: x, y: y } });
+                            }}
+                          />
+                          {editingRound.pinLocation && (
+                            <div style={{
+                              position: 'absolute',
+                              left: `${editingRound.pinLocation.x - 5}px`, 
+                              top: `${editingRound.pinLocation.y - 5}px`,  
+                              width: '10px',
+                              height: '10px',
+                              backgroundColor: 'red',
+                              borderRadius: '50%',
+                              border: '1px solid white',
+                              pointerEvents: 'none' 
+                            }}></div>
+                          )}
+                        </div>
+                        {editingRound.pinLocation && (
+                          <button 
+                            type="button" 
+                            onClick={() => setEditingRound({ ...editingRound, pinLocation: null })}
+                            style={{ marginTop: 8, fontSize: '0.9em' }}
+                          >
+                            Clear Pin Location
+                          </button>
+                        )}
+                        {!editingRound.pinLocation && (
+                          <p style={{ fontSize: '0.9em', color: '#666', margin: '4px 0 0 0' }}>
+                            Click on the map to mark the tag location.
+                          </p>
                         )}
                       </div>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button type="submit">Save</button>
+                      {/* PIN LOCATION LOGIC FOR EDIT FORM - END */}
+
+                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                        <button type="submit">Update Tag Time</button>
+                        <button 
+                          type="button" 
+                          onClick={handleUpdatePinLocation}
+                          style={{ background: '#4CAF50', color: 'white' }}
+                        >
+                          Update Pin Location
+                        </button>
                         <button 
                           type="button" 
                           onClick={() => setEditingRound(null)}
@@ -1036,11 +1322,23 @@ function Matches() {
                         <div>Round {index + 1} {selectedMatch.is_sudden_death && index >= (selectedMatch.match_type === "team" ? 16 : 4) && "(Sudden Death)"}</div>
                         {!selectedMatch.is_completed && !selectedMatch.is_sudden_death && round.tag_made && (
                           <button 
-                            onClick={() => setEditingRound({
-                              index,
-                              tag_made: round.tag_made,
-                              tag_time: round.tag_time
-                            })}
+                            onClick={() => {
+                              const roundToEdit = selectedMatch.rounds[index]; // Already established that round.tag_made is true here
+                              const existingPin = currentMatchPins.find(
+                                (p) => p.match_id === selectedMatch.id && p.round_index === index
+                              );
+                              setEditingRound({
+                                index,
+                                chaserName: roundToEdit.chaser.name,
+                                evaderName: roundToEdit.evader.name,
+                                tag_made: roundToEdit.tag_made, // Will be true
+                                tag_time: roundToEdit.tag_time,
+                                pinLocation: existingPin ? existingPin.location : null,
+                                existingPinId: existingPin ? existingPin.id : null,
+                                originalChaserId: roundToEdit.chaser.id,
+                                originalEvaderId: roundToEdit.evader.id,
+                              });
+                            }}
                             style={{ 
                               padding: '2px 8px',
                               fontSize: '0.8em',
@@ -1049,7 +1347,7 @@ function Matches() {
                               borderRadius: '3px'
                             }}
                           >
-                            Edit Time
+                            Edit Time/Pin
                           </button>
                         )}
                       </div>
@@ -1058,6 +1356,12 @@ function Matches() {
                       <div>Result: {round.tag_made 
                         ? `Tagged at ${round.tag_time}s` 
                         : "Evaded (20s)"}</div>
+                      {/* Show pin info if one exists for this round */}
+                      {currentMatchPins.some(pin => pin.round_index === index) && (
+                        <div style={{ fontSize: '0.8em', color: '#666', marginTop: 4 }}>
+                          Pin location recorded ⚑
+                        </div>
+                      )}
                     </>
                   )}
                 </div>

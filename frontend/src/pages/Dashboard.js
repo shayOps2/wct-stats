@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
   Card, 
   Row, 
@@ -10,10 +10,8 @@ import {
   DatePicker, 
   Button, 
   Divider, 
-  Space, 
   Statistic 
 } from "antd";
-import moment from "moment";
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -81,7 +79,7 @@ function Dashboard() {
     }
   };
 
-  const fetchPlayerStats = async () => {
+  const fetchPlayerStats = useCallback(async () => {
     if (!selectedPlayer) return;
 
     try {
@@ -151,14 +149,14 @@ function Dashboard() {
       setLoadingPlayerStats(false);
       setPlayerStats(null);
     }
-  };
+  }, [selectedPlayer, selectedOpponent, dateRange, matchType]);
 
   // Reset player stats when filters change
   useEffect(() => {
     if (selectedPlayer) {
       fetchPlayerStats();
     }
-  }, [selectedPlayer]);
+  }, [selectedPlayer, fetchPlayerStats]);
   
   // Clear match type when opponent is selected
   useEffect(() => {

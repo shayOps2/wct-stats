@@ -1,19 +1,34 @@
 from fastapi import FastAPI
-from routers import players, matches, quadmap
+from routers import players, matches, pins
 from fastapi.staticfiles import StaticFiles
 import os
+from database import init_db, setup_database
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# Ensure images directory exists for quad maps only
+# Register startup event
+@app.on_event("startup")
+async def startup_db_client():
+    logger.info("Initializing database...")
+    await init_db()
+    await setup_database()
+    logger.info("Database initialization completed")
+
+# Ensure images directory exists
 os.makedirs("images", exist_ok=True)
 
-# Mount images directory for quad maps
+# Mount images directory
+# The name "quad_maps" for StaticFiles might be a bit misleading now, but path /images is correct.
 app.mount("/images", StaticFiles(directory="images"), name="quad_maps")
 
 app.include_router(players.router, prefix="/players", tags=["Players"])
 app.include_router(matches.router, prefix="/matches", tags=["Matches"])
-app.include_router(quadmap.router, prefix="/quadmap", tags=["QuadMap"])
+app.include_router(pins.router)
 
 @app.get("/")
 def root():

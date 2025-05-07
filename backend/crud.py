@@ -1,9 +1,10 @@
-# CRUD logic for players, matches, quadmap
+# CRUD logic for players, matches, pins
 from database import db
-from models import Player, Match, QuadMap, Round
+from models import Player, Match, Round, Pin
 from bson import ObjectId
 import bson
 from typing import List, Optional, Dict, Any
+import traceback
 
 def player_helper(player) -> dict:
     return {
@@ -15,11 +16,15 @@ def player_helper(player) -> dict:
 # Player CRUD operations
 def document_to_player(doc):
     if doc:
-        return Player(
-            id=str(doc["_id"]) if "_id" in doc else doc.get("id"),
-            name=doc["name"],
-            image_id=doc.get("image_id")
-        )
+        try:
+            return Player(
+                id=str(doc["_id"]) if "_id" in doc else doc.get("id"),
+                name=doc["name"],
+                image_id=doc.get("image_id")
+            )
+        except Exception as e:
+            print(f"Error converting document to player: {str(e)}, Document: {doc}")
+            return None
     return None
 
 def player_to_document(player: Player):
@@ -208,9 +213,113 @@ async def add_match(match: Match):
 
 async def delete_match(match_id: str):
     try:
+        # First delete all associated pins
+        print(f"Deleting pins associated with match {match_id}")
+        delete_pins_result = await db["pins"].delete_many({"match_id": match_id})
+        print(f"Deleted {delete_pins_result.deleted_count} pins for match {match_id}")
+        
+        # Then delete the match
         result = await db["matches"].delete_one({"_id": bson.ObjectId(match_id)})
         return result.deleted_count > 0
-    except:
+    except Exception as e:
+        print(f"Error deleting match and associated pins: {str(e)}")
+        return False
+
+# Pin CRUD Operations
+
+def document_to_pin(doc: Dict[str, Any]) -> Optional[Pin]:
+    if not doc:
+        return None
+    try:
+        return Pin(
+            id=str(doc["_id"]),
+            location=doc["location"],
+            chaser_id=str(doc["chaser_id"]),
+            evader_id=str(doc["evader_id"]),
+            match_id=str(doc["match_id"]),
+            round_index=doc["round_index"],
+            video_url=doc.get("video_url")
+        )
+    except Exception as e:
+        print(f"Error converting document to Pin: {str(e)}")
+        return None
+
+async def create_pin(pin_data: Pin) -> Optional[Pin]:
+    try:
+        # First check if a pin already exists for this match_id and round_index
+        existing_pin = None
+        query = {
+            "match_id": pin_data.match_id,
+            "round_index": pin_data.round_index
+        }
+        
+        existing_pins = await get_pins(query)
+        if existing_pins:
+            # If a pin exists, update it instead of creating a new one
+            existing_pin = existing_pins[0]
+            print(f"Found existing pin for match {pin_data.match_id}, round {pin_data.round_index}. Updating instead of creating.")
+            return await update_pin(existing_pin.id, pin_data.location)
+        
+        # If no pin exists, proceed with creation
+        pin_doc = pin_data.model_dump(exclude_unset=True, exclude={"id"}) # Exclude id for insertion
+        
+        # Ensure relevant IDs are stored as strings or can be converted if needed later
+        # For now, assuming they are already strings as per Pin model
+        # If they were ObjectIds from other collections, they would need conversion here or before.
+
+        result = await db["pins"].insert_one(pin_doc)
+        created_pin_doc = await db["pins"].find_one({"_id": result.inserted_id})
+        return document_to_pin(created_pin_doc)
+    except Exception as e:
+        print(f"Error creating pin: {str(e)}")
+        traceback.print_exc()  # Print the full traceback for debugging
+        return None
+
+async def get_pins(query_filter: Dict[str, Any]) -> List[Pin]:
+    pins = []
+    try:
+        cursor = db["pins"].find(query_filter)
+        async for document in cursor:
+            pin = document_to_pin(document)
+            if pin:
+                pins.append(pin)
+    except Exception as e:
+        print(f"Error fetching pins: {str(e)}")
+    return pins
+
+async def get_pins_by_match_and_round(match_id: str, round_index: Optional[int] = None) -> List[Pin]:
+    query: Dict[str, Any] = {"match_id": match_id}
+    if round_index is not None:
+        query["round_index"] = round_index
+    return await get_pins(query)
+
+async def update_pin(pin_id: str, pin_location_data: Dict[str, Any]) -> Optional[Pin]:
+    """Updates only the location of an existing pin."""
+    try:
+        if not await db["pins"].find_one({"_id": ObjectId(pin_id)}):
+            return None # Pin not found
+        
+        update_result = await db["pins"].update_one(
+            {"_id": ObjectId(pin_id)},
+            {"$set": {"location": pin_location_data}} # Only update location
+        )
+        
+        if update_result.modified_count == 1:
+            updated_pin_doc = await db["pins"].find_one({"_id": ObjectId(pin_id)})
+            return document_to_pin(updated_pin_doc)
+        return None # Should not happen if find_one initially found it and no race condition
+    except Exception as e:
+        print(f"Error updating pin {pin_id}: {str(e)}")
+        return None
+
+async def delete_pin(pin_id: str) -> bool:
+    """Deletes a pin by its ID."""
+    try:
+        delete_result = await db["pins"].delete_one({"_id": ObjectId(pin_id)})
+        return delete_result.deleted_count > 0
+    except Exception as e:
+        print(f"Error deleting pin {pin_id}: {str(e)}")
         return False
 
 # Similar helpers for QuadMap... (to be expanded)
+

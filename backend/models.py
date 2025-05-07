@@ -13,8 +13,6 @@ class Round(BaseModel):
     tag_made: bool
     tag_time: Optional[float] = None  # Time in seconds, None for successful evasions
     video_url: Optional[str] = None
-    tag_location: Optional[dict] = None  # {'x': float, 'y': float}
-    quad_map_id: Optional[str] = None
 
 class Match(BaseModel):
     id: Optional[str] = None
@@ -40,15 +38,10 @@ class Match(BaseModel):
     winner: Optional[str] = None  # team1_name, team2_name, player1.name, or player2.name
 
 class Pin(BaseModel):
-    location: dict  # {'x': float, 'y': float}
-    player_id: str
-    type: str  # 'tag_by', 'tag_against', etc.
-    timestamp: Optional[float] = None
-    match_id: Optional[str] = None
-    round_index: Optional[int] = None
-    video_url: Optional[str] = None
-
-class QuadMap(BaseModel):
     id: Optional[str] = None
-    image: str
-    pins: List[Pin] = []
+    location: dict  # {'x': float, 'y': float}
+    chaser_id: str
+    evader_id: str
+    match_id: str
+    round_index: int
+    video_url: Optional[str] = None

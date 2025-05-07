@@ -2,6 +2,12 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from gridfs import GridFS
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 import os
+import asyncio
+import logging
+
+# Configure logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 # MongoDB connection URL
 MONGODB_URL = "mongodb://localhost:27017"
@@ -44,3 +50,19 @@ async def init_db():
     
     # Players collection indexes (existing)
     await db.players.create_index("name", unique=True)
+
+# Setup function to ensure indexes are created
+async def setup_database():
+    try:
+        # Create a unique index on pins collection to prevent duplicates on match_id + round_index
+        logger.info("Creating unique index on pins collection...")
+        await db.pins.create_index(
+            [("match_id", 1), ("round_index", 1)], 
+            unique=True
+        )
+        logger.info("Unique index created successfully on pins collection")
+    except Exception as e:
+        logger.error(f"Error setting up database indexes: {str(e)}")
+
+# We'll call setup_database explicitly in main.py instead of here
+# This ensures proper initialization order at application startup
