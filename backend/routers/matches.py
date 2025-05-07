@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Body
 from models import Match, Round
-from crud import get_matches, get_match, add_match, delete_match, get_player
+from crud import get_matches, get_match, add_match, delete_match, get_player, update_match as update_match_in_db
 from datetime import datetime
 from typing import List, Optional
 import logging
@@ -503,12 +503,6 @@ async def update_round(
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     
-    # Check if match is completed or in sudden death
-    if match.is_completed:
-        raise HTTPException(status_code=400, detail="Cannot edit rounds in a completed match")
-    if match.is_sudden_death:
-        raise HTTPException(status_code=400, detail="Cannot edit rounds once sudden death has started")
-    
     # Check if round index is valid
     if round_index < 0 or round_index >= len(match.rounds):
         raise HTTPException(status_code=404, detail="Round not found")
@@ -516,24 +510,45 @@ async def update_round(
     # Get the round to update
     round_to_update = match.rounds[round_index]
     
-    # As per frontend logic, tag_made is not supposed to change for existing rounds during an edit meant for time/pin.
-    # However, if it were to change, ensure tag_time consistency.
-    # For now, we primarily expect tag_time to be updated if tag_made was already true.
-    if round_to_update.tag_made: # If the round was a tag
+    # For completed matches, only allow updating tag_time if the round was already a tag
+    if match.is_completed:
+        if tag_made != round_to_update.tag_made:
+            raise HTTPException(
+                status_code=400, 
+                detail="Cannot change tag status in a completed match"
+            )
+        if not round_to_update.tag_made:
+            raise HTTPException(
+                status_code=400, 
+                detail="Cannot update tag time for an evaded round"
+            )
+        # Only allow updating tag_time
         if tag_time is not None and (tag_time < 0 or tag_time > 20):
-             raise HTTPException(status_code=400, detail="Valid tag_time (0-20 seconds) is required for a tagged round")
+            raise HTTPException(
+                status_code=400, 
+                detail="Valid tag_time (0-20 seconds) is required for a tagged round"
+            )
         round_to_update.tag_time = tag_time
-    # If the frontend were to allow changing tag_made from False to True, this logic would need to be more robust.
-    # Current conservative approach: only tag_time of an existing tagged round is primarily changed.
-    # round_to_update.tag_made = tag_made # If we were to allow changing this
+    else:
+        # For matches in progress, check if in sudden death
+        if match.is_sudden_death:
+            raise HTTPException(
+                status_code=400, 
+                detail="Cannot edit rounds once sudden death has started"
+            )
+        
+        # As per frontend logic, tag_made is not supposed to change for existing rounds during an edit meant for time/pin.
+        # However, if it were to change, ensure tag_time consistency.
+        # For now, we primarily expect tag_time to be updated if tag_made was already true.
+        if round_to_update.tag_made: # If the round was a tag
+            if tag_time is not None and (tag_time < 0 or tag_time > 20):
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Valid tag_time (0-20 seconds) is required for a tagged round"
+                )
+            round_to_update.tag_time = tag_time
     
     round_to_update.video_url = video_url
-    # Note: tag_location has been removed from here as it's not a field in the Round model
-    # Pin locations should be handled through the pins API
-
-    # Update score based on the original tag_made status before this edit
-    # This part needs careful review if tag_made could be flipped by this endpoint.
-    # For now, assuming tag_made is not flipped from its original state for score calculation impact.
     
     # Update match in database
     result = await add_match(match)
@@ -541,3 +556,24 @@ async def update_round(
         raise HTTPException(status_code=500, detail="Failed to update match")
     
     return result
+
+@router.patch("/{match_id}", response_model=Match)
+async def update_match_date(
+    match_id: str,
+    date: datetime = Body(..., embed=True)
+):
+    """Update a match's date."""
+    # First get the existing match
+    match = await get_match(match_id)
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    
+    # Update only the date
+    match.date = date
+    
+    # Save the updated match
+    updated_match = await update_match_in_db(match)
+    if not updated_match:
+        raise HTTPException(status_code=400, detail="Failed to update match")
+    
+    return updated_match

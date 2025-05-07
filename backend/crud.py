@@ -211,6 +211,36 @@ async def add_match(match: Match):
         print(f"Error saving match: {str(e)}")
         return None
 
+async def update_match(match: Match) -> Optional[Match]:
+    """
+    Update an existing match in the database.
+    
+    Args:
+        match: Match object with updated data
+        
+    Returns:
+        Updated Match object if successful, None otherwise
+    """
+    try:
+        if not match.id:
+            print("Cannot update match without an ID")
+            return None
+            
+        match_dict = match_to_document(match)
+        result = await db["matches"].update_one(
+            {"_id": match_dict["_id"]},
+            {"$set": {k: v for k, v in match_dict.items() if k != "_id"}}
+        )
+        
+        if result.modified_count == 0:
+            print(f"No match found with ID {match.id} to update")
+            return None
+            
+        return await get_match(match.id)
+    except Exception as e:
+        print(f"Error updating match: {str(e)}")
+        return None
+
 async def delete_match(match_id: str):
     try:
         # First delete all associated pins

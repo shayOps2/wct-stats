@@ -1,11 +1,35 @@
 import React, { useEffect, useState } from "react";
 
+function formatDateForInput(dateString) {
+  // Create a date object in local timezone
+  const date = new Date(dateString);
+  // Get the local date string in YYYY-MM-DD format
+  return date.toLocaleDateString('en-CA'); // en-CA gives YYYY-MM-DD format
+}
+
+function formatDateForDisplay(dateString) {
+  // Create a date object and format it for display
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+}
+
+function formatDateForAPI(dateString) {
+  // Create a date object at noon UTC to avoid timezone issues
+  const date = new Date(dateString);
+  date.setUTCHours(12, 0, 0, 0);
+  return date.toISOString();
+}
+
 function Matches() {
   const [matches, setMatches] = useState([]);
   const [players, setPlayers] = useState([]);
   const [matchType, setMatchType] = useState("1v1");
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: formatDateForInput(new Date()),
     team1_name: "",
     team2_name: "",
     team1_player_ids: [],
@@ -68,35 +92,48 @@ function Matches() {
     setPlayers(data);
   };
 
+  const generateTeamName = (playerIds) => {
+    if (!playerIds || playerIds.length === 0) return "";
+    const teamPlayers = playerIds
+      .map(id => players.find(p => p.id === id))
+      .filter(p => p) // Remove any undefined players
+      .map(p => p.name);
+    return teamPlayers.join('-');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Generate team names if empty
+    const submissionData = {
+      match_type: matchType,
+      date: formatDateForAPI(formData.date),
+      ...(matchType === "team"
+        ? {
+            team1_name: formData.team1_name || generateTeamName(formData.team1_player_ids),
+            team2_name: formData.team2_name || generateTeamName(formData.team2_player_ids),
+            team1_player_ids: formData.team1_player_ids,
+            team2_player_ids: formData.team2_player_ids,
+          }
+        : {
+            player1_id: formData.player1_id,
+            player2_id: formData.player2_id,
+          }),
+    };
+
     const response = await fetch("/matches/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        match_type: matchType,
-        date: new Date(formData.date).toISOString(),
-        ...(matchType === "team"
-          ? {
-              team1_name: formData.team1_name,
-              team2_name: formData.team2_name,
-              team1_player_ids: formData.team1_player_ids,
-              team2_player_ids: formData.team2_player_ids,
-            }
-          : {
-              player1_id: formData.player1_id,
-              player2_id: formData.player2_id,
-            }),
-      }),
+      body: JSON.stringify(submissionData),
     });
 
     if (response.ok) {
-    fetchMatches();
+      fetchMatches();
       // Reset form
       setFormData({
-        date: new Date().toISOString().split('T')[0],
+        date: formatDateForInput(new Date()),
         team1_name: "",
         team2_name: "",
         team1_player_ids: [],
@@ -104,6 +141,32 @@ function Matches() {
         player1_id: "",
         player2_id: ""
       });
+    }
+  };
+
+  const handleEditDate = async (matchId, newDate) => {
+    try {
+      const response = await fetch(`/matches/${matchId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          date: formatDateForAPI(newDate)
+        }),
+      });
+
+      if (response.ok) {
+        const updatedMatch = await response.json();
+        setMatches(matches.map(m => m.id === updatedMatch.id ? updatedMatch : m));
+        if (selectedMatch?.id === updatedMatch.id) {
+          setSelectedMatch(updatedMatch);
+        }
+      } else {
+        console.error("Failed to update match date");
+      }
+    } catch (error) {
+      console.error("Error updating match date:", error);
     }
   };
 
@@ -424,7 +487,7 @@ function Matches() {
                 setMatchType(e.target.value);
                 // Reset form when changing match type
                 setFormData({
-                  date: new Date().toISOString().split('T')[0],
+                  date: formatDateForInput(new Date()),
                   team1_name: "",
                   team2_name: "",
                   team1_player_ids: [],
@@ -442,7 +505,7 @@ function Matches() {
           
           <label style={{ marginRight: 16 }}>
             Date:
-        <input
+            <input
               type="date"
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
@@ -716,12 +779,32 @@ function Matches() {
               <div style={{ marginBottom: 8 }}>
                 <strong>Type:</strong> {match.match_type}
               </div>
-              <div style={{ marginBottom: 8 }}>
-                <strong>Date:</strong> {new Date(match.date).toLocaleDateString()}
+              <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <strong>Date:</strong>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <input
+                    type="date"
+                    value={formatDateForInput(match.date)}
+                    onChange={(e) => handleEditDate(match.id, e.target.value)}
+                    onClick={(e) => e.stopPropagation()} // Prevent card click when editing date
+                    style={{ 
+                      border: '1px solid #ddd',
+                      borderRadius: 4,
+                      padding: '2px 4px'
+                    }}
+                  />
+                  <span style={{ fontSize: '0.8em', color: '#666' }}>
+                    {formatDateForDisplay(match.date)}
+                  </span>
+                </div>
               </div>
               {match.match_type === "team" ? (
                 <>
-                  <div style={{ marginBottom: 4 }}><strong>{match.team1_name}</strong> vs <strong>{match.team2_name}</strong></div>
+                  <div style={{ marginBottom: 4 }}>
+                    <strong>{match.team1_name || generateTeamName(match.team1_players.map(p => p.id))}</strong> 
+                    vs 
+                    <strong>{match.team2_name || generateTeamName(match.team2_players.map(p => p.id))}</strong>
+                  </div>
                   <div style={{ marginBottom: 8 }}>Score: {match.team1_score} - {match.team2_score}</div>
                 </>
               ) : (
@@ -762,7 +845,7 @@ function Matches() {
             <h3>Manage Rounds</h3>
             <div style={{ marginBottom: 16 }}>
               <strong>{selectedMatch.match_type === "team" 
-                ? `${selectedMatch.team1_name} vs ${selectedMatch.team2_name}`
+                ? `${selectedMatch.team1_name || generateTeamName(selectedMatch.team1_players.map(p => p.id))} vs ${selectedMatch.team2_name || generateTeamName(selectedMatch.team2_players.map(p => p.id))}`
                 : `${selectedMatch.player1?.name} vs ${selectedMatch.player2?.name}`}
               </strong>
             </div>
@@ -793,8 +876,8 @@ function Matches() {
                             required
                           >
                             <option value="">Select Team</option>
-                            <option value="team1">{selectedMatch.team1_name}</option>
-                            <option value="team2">{selectedMatch.team2_name}</option>
+                            <option value="team1">{selectedMatch.team1_name || generateTeamName(selectedMatch.team1_players.map(p => p.id))}</option>
+                            <option value="team2">{selectedMatch.team2_name || generateTeamName(selectedMatch.team2_players.map(p => p.id))}</option>
                           </select>
                         </label>
                       </div>
@@ -816,7 +899,7 @@ function Matches() {
                       }
                       return (
                         <div style={{ marginBottom: 8 }}>
-                          <strong>Evading Team: {chaserInTeam1 ? selectedMatch.team1_name : selectedMatch.team2_name}</strong>
+                          <strong>Evading Team: {chaserInTeam1 ? selectedMatch.team1_name || generateTeamName(selectedMatch.team1_players.map(p => p.id)) : selectedMatch.team2_name || generateTeamName(selectedMatch.team2_players.map(p => p.id))}</strong>
                           <div style={{ fontSize: '0.9em', color: '#666' }}>
                             (Team that chased in first sudden death round must evade)
                           </div>
@@ -1259,15 +1342,15 @@ function Matches() {
                       <div style={{ marginBottom: 8 }}>
                         <label style={{ display: 'block', marginBottom: 4 }}>
                           Tag Time (seconds):
-                            <input
-                              type="number"
-                              value={editingRound.tag_time}
+                          <input
+                            type="number"
+                            value={editingRound.tag_time}
                             onChange={(e) => setEditingRound({ ...editingRound, tag_time: e.target.value })}
-                              min="0"
-                              step="0.1"
+                            min="0"
+                            step="0.1"
                             style={{ marginLeft: 8, width: 80 }}
-                              required
-                            />
+                            required
+                          />
                         </label>
                       </div>
 
@@ -1362,7 +1445,7 @@ function Matches() {
                     <>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>Round {index + 1} {selectedMatch.is_sudden_death && index >= (selectedMatch.match_type === "team" ? 16 : 4) && "(Sudden Death)"}</div>
-                        {!selectedMatch.is_completed && !selectedMatch.is_sudden_death && round.tag_made && (
+                        {round.tag_made && (
                           <button 
                             onClick={() => {
                               const roundToEdit = selectedMatch.rounds[index]; // Already established that round.tag_made is true here
@@ -1370,7 +1453,7 @@ function Matches() {
                                 (p) => p.match_id === selectedMatch.id && p.round_index === index
                               );
                               setEditingRound({
-                              index,
+                                index,
                                 chaserName: roundToEdit.chaser.name,
                                 evaderName: roundToEdit.evader.name,
                                 tag_made: roundToEdit.tag_made, // Will be true
