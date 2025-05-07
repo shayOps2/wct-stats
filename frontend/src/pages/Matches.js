@@ -250,8 +250,8 @@ function Matches() {
       }
 
       const updatedMatch = await matchRoundUpdateResponse.json();
-      setMatches(matches.map(m => m.id === updatedMatch.id ? updatedMatch : m));
-      setSelectedMatch(updatedMatch);
+        setMatches(matches.map(m => m.id === updatedMatch.id ? updatedMatch : m));
+        setSelectedMatch(updatedMatch);
       setEditingRound(null); // Clear editing state
 
     } catch (error) {
@@ -293,7 +293,7 @@ function Matches() {
             try {
               console.log(`Deleting duplicate pin ${pin.id}`);
               await fetch(`/pins/${pin.id}`, { method: 'DELETE' });
-            } catch (error) {
+    } catch (error) {
               console.error(`Error deleting duplicate pin ${pin.id}:`, error);
             }
           }
@@ -1143,39 +1143,61 @@ function Matches() {
                       Tag Location (Optional):
                     </label>
                     <div style={{ position: 'relative', width: '100%', maxWidth: '400px' }}>
+                      <svg 
+                        style={{ 
+                          position: 'absolute', 
+                          top: 0, 
+                          left: 0, 
+                          width: '100%', 
+                          height: '100%',
+                          pointerEvents: 'none'
+                        }}
+                        preserveAspectRatio="none"
+                        viewBox="0 0 100 100"
+                      >
+                        {roundData.pinLocation && (
+                          <circle
+                            cx={roundData.pinLocation.x}
+                            cy={roundData.pinLocation.y}
+                            r="2"
+                            fill="red"
+                            stroke="white"
+                            strokeWidth="0.5"
+                          />
+                        )}
+                      </svg>
                       <img 
                         src="/images/quad.jpg" 
                         alt="Quad Map" 
                         style={{ width: '100%', height: 'auto', cursor: 'pointer', border: '1px solid #ccc' }}
                         onClick={(e) => {
                           const rect = e.target.getBoundingClientRect();
-                          const x = e.clientX - rect.left;
-                          const y = e.clientY - rect.top;
-                          setRoundData({ ...roundData, pinLocation: { x: x, y: y } });
+                          // Calculate position as percentage of image dimensions
+                          const x = ((e.clientX - rect.left) / rect.width) * 100;
+                          const y = ((e.clientY - rect.top) / rect.height) * 100;
+                          setRoundData({ 
+                            ...roundData, 
+                            pinLocation: { 
+                              x: Math.round(x * 100) / 100, // Round to 2 decimal places
+                              y: Math.round(y * 100) / 100
+                            } 
+                          });
                         }}
                       />
-                      {roundData.pinLocation && (
-                        <div style={{
-                          position: 'absolute',
-                          left: `${roundData.pinLocation.x - 5}px`, 
-                          top: `${roundData.pinLocation.y - 5}px`,  
-                          width: '10px',
-                          height: '10px',
-                          backgroundColor: 'red',
-                          borderRadius: '50%',
-                          border: '1px solid white',
-                          pointerEvents: 'none' 
-                        }}></div>
-                      )}
                     </div>
                     {roundData.pinLocation && (
-                      <button 
-                        type="button" 
-                        onClick={() => setRoundData({ ...roundData, pinLocation: null })}
-                        style={{ marginTop: 8, fontSize: '0.9em' }}
-                      >
-                        Clear Pin Location
-                      </button>
+                      <div>
+                        <button 
+                          type="button" 
+                          onClick={() => setRoundData({ ...roundData, pinLocation: null })}
+                          style={{ marginTop: 8, fontSize: '0.9em' }}
+                        >
+                          Clear Pin Location
+                        </button>
+                        <div style={{ fontSize: '0.8em', color: '#666', marginTop: 4 }}>
+                          Pin position: {roundData.pinLocation.x.toFixed(1)}%, {roundData.pinLocation.y.toFixed(1)}%
+                        </div>
+                      </div>
                     )}
                     {!roundData.pinLocation && (
                       <p style={{ fontSize: '0.9em', color: '#666', margin: '4px 0 0 0' }}>
@@ -1237,57 +1259,78 @@ function Matches() {
                       <div style={{ marginBottom: 8 }}>
                         <label style={{ display: 'block', marginBottom: 4 }}>
                           Tag Time (seconds):
-                          <input
-                            type="number"
-                            value={editingRound.tag_time}
+                            <input
+                              type="number"
+                              value={editingRound.tag_time}
                             onChange={(e) => setEditingRound({ ...editingRound, tag_time: e.target.value })}
-                            min="0"
-                            step="0.1"
+                              min="0"
+                              step="0.1"
                             style={{ marginLeft: 8, width: 80 }}
-                            required
-                          />
+                              required
+                            />
                         </label>
                       </div>
 
-                      {/* PIN LOCATION LOGIC FOR EDIT FORM - Always shown as tag_made is true here */}
+                      {/* PIN LOCATION LOGIC FOR EDIT FORM */}
                       <div style={{ marginBottom: 16, marginTop: 8, padding: 8, border: '1px solid #eee', borderRadius: 4 }}>
                         <label style={{ display: 'block', marginBottom: 4, fontWeight: 'bold' }}>
                           Tag Location (Optional):
                         </label>
                         <div style={{ position: 'relative', width: '100%', maxWidth: '400px' }}>
+                          <svg 
+                            style={{ 
+                              position: 'absolute', 
+                              top: 0, 
+                              left: 0, 
+                              width: '100%', 
+                              height: '100%',
+                              pointerEvents: 'none'
+                            }}
+                            preserveAspectRatio="none"
+                            viewBox="0 0 100 100"
+                          >
+                            {editingRound.pinLocation && (
+                              <circle
+                                cx={editingRound.pinLocation.x}
+                                cy={editingRound.pinLocation.y}
+                                r="2"
+                                fill="red"
+                                stroke="white"
+                                strokeWidth="0.5"
+                              />
+                            )}
+                          </svg>
                           <img 
                             src="/images/quad.jpg" 
                             alt="Quad Map" 
                             style={{ width: '100%', height: 'auto', cursor: 'pointer', border: '1px solid #ccc' }}
                             onClick={(e) => {
                               const rect = e.target.getBoundingClientRect();
-                              const x = e.clientX - rect.left;
-                              const y = e.clientY - rect.top;
-                              setEditingRound({ ...editingRound, pinLocation: { x: x, y: y } });
+                              const x = ((e.clientX - rect.left) / rect.width) * 100;
+                              const y = ((e.clientY - rect.top) / rect.height) * 100;
+                              setEditingRound({ 
+                                ...editingRound, 
+                                pinLocation: { 
+                                  x: Math.round(x * 100) / 100,
+                                  y: Math.round(y * 100) / 100 
+                                } 
+                              });
                             }}
                           />
-                          {editingRound.pinLocation && (
-                            <div style={{
-                              position: 'absolute',
-                              left: `${editingRound.pinLocation.x - 5}px`, 
-                              top: `${editingRound.pinLocation.y - 5}px`,  
-                              width: '10px',
-                              height: '10px',
-                              backgroundColor: 'red',
-                              borderRadius: '50%',
-                              border: '1px solid white',
-                              pointerEvents: 'none' 
-                            }}></div>
-                          )}
                         </div>
                         {editingRound.pinLocation && (
-                          <button 
-                            type="button" 
-                            onClick={() => setEditingRound({ ...editingRound, pinLocation: null })}
-                            style={{ marginTop: 8, fontSize: '0.9em' }}
-                          >
-                            Clear Pin Location
-                          </button>
+                          <div>
+                            <button 
+                              type="button" 
+                              onClick={() => setEditingRound({ ...editingRound, pinLocation: null })}
+                              style={{ marginTop: 8, fontSize: '0.9em' }}
+                            >
+                              Clear Pin Location
+                            </button>
+                            <div style={{ fontSize: '0.8em', color: '#666', marginTop: 4 }}>
+                              Pin position: {editingRound.pinLocation.x.toFixed(1)}%, {editingRound.pinLocation.y.toFixed(1)}%
+                            </div>
+                          </div>
                         )}
                         {!editingRound.pinLocation && (
                           <p style={{ fontSize: '0.9em', color: '#666', margin: '4px 0 0 0' }}>
@@ -1295,7 +1338,6 @@ function Matches() {
                           </p>
                         )}
                       </div>
-                      {/* PIN LOCATION LOGIC FOR EDIT FORM - END */}
 
                       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                         <button type="submit">Update Tag Time</button>
@@ -1328,7 +1370,7 @@ function Matches() {
                                 (p) => p.match_id === selectedMatch.id && p.round_index === index
                               );
                               setEditingRound({
-                                index,
+                              index,
                                 chaserName: roundToEdit.chaser.name,
                                 evaderName: roundToEdit.evader.name,
                                 tag_made: roundToEdit.tag_made, // Will be true

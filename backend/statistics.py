@@ -18,6 +18,10 @@ class PlayerStats:
         self.successful_tags: int = 0
         self.total_tag_time: float = 0.0
     
+        # Match statistics
+        self.matches_played: int = 0
+        self.matches_won: int = 0
+    
     @property
     def evasion_success_rate(self) -> float:
         """Calculate evasion success rate"""
@@ -42,6 +46,11 @@ class PlayerStats:
             return 0.0
         return self.total_tag_time / self.successful_tags
     
+    @property
+    def win_percentage(self) -> float:
+        """Calculate win percentage"""
+        return (self.matches_won / self.matches_played * 100) if self.matches_played > 0 else 0.0
+    
     def to_dict(self) -> Dict:
         """Convert stats to dictionary for API response"""
         return {
@@ -58,7 +67,10 @@ class PlayerStats:
                 "average_tag_time": round(self.average_tag_time, 2)
             },
             "overall": {
-                "total_rounds": self.total_chase_attempts + self.total_evasion_attempts
+                "total_rounds": self.total_chase_attempts + self.total_evasion_attempts,
+                "matches_played": self.matches_played,
+                "matches_won": self.matches_won,
+                "win_percentage": round(self.win_percentage, 2)
             }
         }
 
@@ -146,8 +158,55 @@ async def calculate_player_stats(
     
     stats = PlayerStats()
     
+    # Keep track of unique matches for match statistics
+    processed_match_ids = set()
+    
     for match in matches:
-        # For each round in the match
+        # Check if player was involved in this match
+        player_involved = False
+        
+        # For 1v1 matches
+        if match.match_type == "1v1":
+            is_player1 = str(match.player1.id) == str(player_id)
+            is_player2 = str(match.player2.id) == str(player_id) 
+            player_involved = is_player1 or is_player2
+            
+            # Check if we won and match is completed
+            if match.is_completed and player_involved:
+                # Only count the match once for match stats
+                if match.id not in processed_match_ids:
+                    processed_match_ids.add(match.id)
+                    stats.matches_played += 1
+                    
+                    # Check if player won
+                    if (is_player1 and match.winner == match.player1.name) or \
+                       (is_player2 and match.winner == match.player2.name):
+                        stats.matches_won += 1
+        
+        # For team matches
+        else:  # match.match_type == "team"
+            # Check if player is on either team
+            is_team1 = any(str(p.id) == str(player_id) for p in match.team1_players or [])
+            is_team2 = any(str(p.id) == str(player_id) for p in match.team2_players or [])
+            player_involved = is_team1 or is_team2
+            
+            # Check if we won and match is completed
+            if match.is_completed and player_involved:
+                # Only count the match once for match stats
+                if match.id not in processed_match_ids:
+                    processed_match_ids.add(match.id)
+                    stats.matches_played += 1
+                    
+                    # Check if player's team won
+                    if (is_team1 and match.winner == match.team1_name) or \
+                       (is_team2 and match.winner == match.team2_name):
+                        stats.matches_won += 1
+        
+        # Skip if player wasn't involved (shouldn't happen with our query but just in case)
+        if not player_involved:
+            continue
+            
+        # Process round statistics
         for round in match.rounds:
             # Check if player was involved in this round
             is_evader = str(round.evader.id) == str(player_id)

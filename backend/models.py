@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Dict, Any
 from datetime import datetime
 
 class Player(BaseModel):
@@ -37,6 +37,12 @@ class Match(BaseModel):
     is_completed: bool = False
     winner: Optional[str] = None  # team1_name, team2_name, player1.name, or player2.name
 
+class MatchDetails(BaseModel):
+    date: Optional[str] = None
+    type: Optional[str] = None
+    chaser: Optional[str] = None
+    evader: Optional[str] = None
+
 class Pin(BaseModel):
     id: Optional[str] = None
     location: dict  # {'x': float, 'y': float}
@@ -45,3 +51,4 @@ class Pin(BaseModel):
     match_id: str
     round_index: int
     video_url: Optional[str] = None
+    matchDetails: Optional[MatchDetails] = None

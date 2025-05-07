@@ -23,8 +23,7 @@ async def startup_db_client():
 os.makedirs("images", exist_ok=True)
 
 # Mount images directory
-# The name "quad_maps" for StaticFiles might be a bit misleading now, but path /images is correct.
-app.mount("/images", StaticFiles(directory="images"), name="quad_maps")
+app.mount("/images", StaticFiles(directory="images"), name="images")
 
 app.include_router(players.router, prefix="/players", tags=["Players"])
 app.include_router(matches.router, prefix="/matches", tags=["Matches"])

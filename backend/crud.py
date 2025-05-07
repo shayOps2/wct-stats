@@ -276,6 +276,7 @@ async def create_pin(pin_data: Pin) -> Optional[Pin]:
         return None
 
 async def get_pins(query_filter: Dict[str, Any]) -> List[Pin]:
+    """Get pins based on a filter dictionary."""
     pins = []
     try:
         cursor = db["pins"].find(query_filter)
@@ -321,5 +322,5 @@ async def delete_pin(pin_id: str) -> bool:
         print(f"Error deleting pin {pin_id}: {str(e)}")
         return False
 
-# Similar helpers for QuadMap... (to be expanded)
+# End of CRUD operations
 
