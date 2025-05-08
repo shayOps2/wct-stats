@@ -1,0 +1,5 @@
+SD not working currectly, error - last evader must evade again 
+map pins in player specific stats are not in the right place (need to be calculated by % like in /dashboard/quadPins)
+
+no warning message for deleting matches
+when deleting round evader is empty (fixed after refresh)
