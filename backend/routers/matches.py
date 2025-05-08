@@ -286,8 +286,23 @@ async def add_round(
                 match.winner = match.team1_name if match.team1_score > match.team2_score else match.team2_name
         else:
             # Check if match can be won with remaining rounds
-            team1_max_possible = match.team1_score + remaining_rounds
-            team2_max_possible = match.team2_score + remaining_rounds
+            # Determine which team will be evading next based on the current round
+            current_round = match.rounds[-1]  # Get the last played round
+            
+            # If the last round was a successful evasion, same player (and thus same team) evades next
+            # If it was a tag, the chaser (from opposite team) becomes the evader
+            next_evading_team1 = False
+            if not current_round.tag_made:
+                # Same evader continues - check which team they're on
+                next_evading_team1 = any(str(p.id) == str(current_round.evader.id) for p in match.team1_players)
+            else:
+                # Chaser becomes evader - check which team they're on
+                next_evading_team1 = any(str(p.id) == str(current_round.chaser.id) for p in match.team1_players)
+            
+            # Calculate max possible scores accounting for chase/evade sequence
+            # The evading team has a chance to score in their evading round
+            team1_max_possible = match.team1_score + (remaining_rounds if next_evading_team1 else remaining_rounds - 1)
+            team2_max_possible = match.team2_score + (remaining_rounds if not next_evading_team1 else remaining_rounds - 1)
             
             if team1_max_possible < match.team2_score or team2_max_possible < match.team1_score:
                 logger.info("Match completed early - Score difference too high")
@@ -415,8 +430,23 @@ async def update_match(
                 match.winner = match.team1_name if match.team1_score > match.team2_score else match.team2_name
         else:
             # Check if match can be won with remaining rounds
-            team1_max_possible = match.team1_score + remaining_rounds
-            team2_max_possible = match.team2_score + remaining_rounds
+            # Determine which team will be evading next based on the current round
+            current_round = match.rounds[-1]  # Get the last played round
+            
+            # If the last round was a successful evasion, same player (and thus same team) evades next
+            # If it was a tag, the chaser (from opposite team) becomes the evader
+            next_evading_team1 = False
+            if not current_round.tag_made:
+                # Same evader continues - check which team they're on
+                next_evading_team1 = any(str(p.id) == str(current_round.evader.id) for p in match.team1_players)
+            else:
+                # Chaser becomes evader - check which team they're on
+                next_evading_team1 = any(str(p.id) == str(current_round.chaser.id) for p in match.team1_players)
+            
+            # Calculate max possible scores accounting for chase/evade sequence
+            # The evading team has a chance to score in their evading round
+            team1_max_possible = match.team1_score + (remaining_rounds if next_evading_team1 else remaining_rounds - 1)
+            team2_max_possible = match.team2_score + (remaining_rounds if not next_evading_team1 else remaining_rounds - 1)
             
             if team1_max_possible < match.team2_score or team2_max_possible < match.team1_score:
                 logger.info("Match completed early - Score difference too high")

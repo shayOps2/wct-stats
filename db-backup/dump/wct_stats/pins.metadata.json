@@ -1,0 +1,1 @@
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"},{"v":{"$numberInt":"2"},"key":{"match_id":{"$numberInt":"1"},"round_index":{"$numberInt":"1"}},"name":"match_id_1_round_index_1","unique":true}],"uuid":"03e7701be92140a8b489c0c71d572e43","collectionName":"pins","type":"collection"}
