@@ -183,7 +183,7 @@ async def add_round(
             if not ((str(evader.id) == str(match.player1.id) and str(chaser.id) == str(match.player2.id)) or
                     (str(evader.id) == str(match.player2.id) and str(chaser.id) == str(match.player1.id))):
                 raise HTTPException(status_code=400, detail="Chaser and evader must be the two players in the match")
-        else:
+        elif not match.is_sudden_death:  # Skip alternating rules for sudden death rounds
             # For subsequent rounds, evaders alternate based on who evaded in the first round
             first_round = match.rounds[0]
             first_evader_was_player1 = str(first_round.evader.id) == str(match.player1.id)
@@ -198,6 +198,10 @@ async def add_round(
             if str(evader.id) != expected_evader_id or str(chaser.id) != expected_chaser_id:
                 raise HTTPException(status_code=400, 
                     detail=f"Invalid player roles for this round. Expected evader: {expected_evader_id}, chaser: {expected_chaser_id}")
+        else:  # In sudden death, just verify they are different players
+            if not ((str(evader.id) == str(match.player1.id) and str(chaser.id) == str(match.player2.id)) or
+                    (str(evader.id) == str(match.player2.id) and str(chaser.id) == str(match.player1.id))):
+                raise HTTPException(status_code=400, detail="Chaser and evader must be the two players in the match")
     else:  # team match
         # Verify players are on different teams
         evader_in_team1 = any(str(p.id) == str(evader.id) for p in match.team1_players)
@@ -213,7 +217,7 @@ async def add_round(
             raise HTTPException(status_code=400, detail="Players must be from opposing teams")
         
         # Check previous round rules
-        if len(match.rounds) > 0:
+        if len(match.rounds) > 0 and not match.is_sudden_death:  # Skip these rules for sudden death
             last_round = match.rounds[-1]
             logger.info(f"Previous Round - Evader: {last_round.evader.name}, Tag Made: {last_round.tag_made}")
             
@@ -363,11 +367,45 @@ async def add_round(
     return result
 
 @router.delete("/{match_id}")
-async def remove_match(match_id: str):
+async def remove_match(
+    match_id: str,
+    confirm: bool = Body(..., embed=True, description="Confirmation flag that must be true to delete the match")
+):
+    """Delete a match. Requires explicit confirmation to prevent accidental deletions.
+    
+    Args:
+        match_id: The ID of the match to delete
+        confirm: Must be set to true to confirm deletion
+        
+    Returns:
+        Status message indicating deletion
+        
+    Raises:
+        HTTPException: If match not found or confirmation not provided
+    """
+    if not confirm:
+        raise HTTPException(
+            status_code=400,
+            detail="This action will permanently delete the match and all its rounds. Set confirm=true to proceed."
+        )
+    
+    # Get match first to provide more context in the error message
+    match = await get_match(match_id)
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    
+    # Additional warning for matches with rounds
+    if len(match.rounds) > 0:
+        logger.warning(f"Deleting match {match_id} with {len(match.rounds)} rounds")
+    
     success = await delete_match(match_id)
     if not success:
-        raise HTTPException(status_code=404, detail="Match not found")
-    return {"status": "deleted"}
+        raise HTTPException(status_code=500, detail="Failed to delete match")
+    
+    return {
+        "status": "deleted",
+        "message": f"Successfully deleted match {match_id} with {len(match.rounds)} rounds"
+    }
 
 @router.put("/{match_id}")
 async def update_match(

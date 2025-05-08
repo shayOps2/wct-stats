@@ -30,6 +30,8 @@ function PlayerDetail() {
   const [statsError, setStatsError] = useState(null);
   const [playerPins, setPlayerPins] = useState([]);
   const [loadingPins, setLoadingPins] = useState(false);
+  const [showChaserPins, setShowChaserPins] = useState(true);
+  const [showEvaderPins, setShowEvaderPins] = useState(true);
 
   useEffect(() => {
     fetchPlayers();
@@ -211,6 +213,39 @@ function PlayerDetail() {
       setPlayerPins([]);
     }
   }, [selectedPlayer, fetchPlayerPins]);
+
+  // Add a function to filter pins based on current filters
+  const getFilteredPins = useCallback(() => {
+    return playerPins.filter(pin => {
+      // Filter by role
+      if (!showChaserPins && pin.chaser_id === selectedPlayer) return false;
+      if (!showEvaderPins && pin.evader_id === selectedPlayer) return false;
+
+      // Filter by opponent
+      if (selectedOpponent) {
+        const isOpponentInvolved = 
+          (pin.chaser_id === selectedOpponent || pin.evader_id === selectedOpponent);
+        if (!isOpponentInvolved) return false;
+      }
+
+      // Filter by match type
+      if (matchType && pin.matchDetails.type !== matchType) return false;
+
+      // Filter by date range
+      if (dateRange && dateRange[0]) {
+        const pinDate = new Date(pin.matchDetails.date);
+        const startDate = dateRange[0].startOf('day').toDate();
+        if (pinDate < startDate) return false;
+
+        if (dateRange[1]) {
+          const endDate = dateRange[1].endOf('day').toDate();
+          if (pinDate > endDate) return false;
+        }
+      }
+
+      return true;
+    });
+  }, [playerPins, showChaserPins, showEvaderPins, selectedOpponent, matchType, dateRange, selectedPlayer]);
 
   if (loading) {
     return (
@@ -532,6 +567,33 @@ function PlayerDetail() {
                   </div>
                 ) : playerPins.length > 0 ? (
                   <div>
+                    <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center', gap: 16 }}>
+                      <div>
+                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={showChaserPins}
+                            onChange={(e) => setShowChaserPins(e.target.checked)}
+                            style={{ marginRight: 8 }}
+                          />
+                          <span style={{ display: 'inline-block', width: 10, height: 10, backgroundColor: 'red', borderRadius: '50%', marginRight: 8 }}></span>
+                          As Chaser
+                        </label>
+                      </div>
+                      <div>
+                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={showEvaderPins}
+                            onChange={(e) => setShowEvaderPins(e.target.checked)}
+                            style={{ marginRight: 8 }}
+                          />
+                          <span style={{ display: 'inline-block', width: 10, height: 10, backgroundColor: 'blue', borderRadius: '50%', marginRight: 8 }}></span>
+                          As Evader
+                        </label>
+                      </div>
+                    </div>
+
                     <div style={{ position: 'relative', maxWidth: '800px', margin: '0 auto' }}>
                       <img 
                         src="/images/quad.jpg" 
@@ -540,7 +602,7 @@ function PlayerDetail() {
                       />
                       
                       {/* Map pins */}
-                      {playerPins.map((pin, index) => (
+                      {getFilteredPins().map((pin, index) => (
                         <Tooltip 
                           key={index} 
                           title={
@@ -549,35 +611,40 @@ function PlayerDetail() {
                               <div>Match Type: {pin.matchDetails.type}</div>
                               <div>Against: {pin.matchDetails.opponent}</div>
                               <div>Role: {pin.matchDetails.playerRole}</div>
+                              <div style={{ fontSize: '0.8em', color: '#888' }}>
+                                Position: ({pin.location.x.toFixed(1)}%, {pin.location.y.toFixed(1)}%)
+                              </div>
                             </div>
                           }
                         >
                           <div 
                             style={{
                               position: 'absolute',
-                              left: `${pin.location.x - 5}px`, 
-                              top: `${pin.location.y - 5}px`,  
-                              width: '10px',
-                              height: '10px',
+                              left: `${pin.location.x}%`,
+                              top: `${pin.location.y}%`,
+                              width: '12px',
+                              height: '12px',
                               backgroundColor: pin.chaser_id === selectedPlayer ? 'red' : 'blue',
                               borderRadius: '50%',
-                              border: '1px solid white',
-                              cursor: 'pointer'
+                              border: '2px solid white',
+                              cursor: 'pointer',
+                              transform: 'translate(-50%, -50%)',
+                              zIndex: 1000,
+                              boxShadow: '0 0 4px rgba(0,0,0,0.5)',
+                              opacity: 0.8
                             }}
                           />
                         </Tooltip>
                       ))}
                     </div>
                     
-                    <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center', gap: 16 }}>
-                      <div>
-                        <span style={{ display: 'inline-block', width: 10, height: 10, backgroundColor: 'red', borderRadius: '50%', marginRight: 8 }}></span>
-                        As Chaser
-                      </div>
-                      <div>
-                        <span style={{ display: 'inline-block', width: 10, height: 10, backgroundColor: 'blue', borderRadius: '50%', marginRight: 8 }}></span>
-                        As Evader
-                      </div>
+                    <div style={{ marginTop: 16, textAlign: 'center' }}>
+                      <div>Total Tags Displayed: {getFilteredPins().length}</div>
+                      {getFilteredPins().length !== playerPins.length && (
+                        <div style={{ fontSize: '0.9em', color: '#666' }}>
+                          (Filtered from {playerPins.length} total tags)
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (

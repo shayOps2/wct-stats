@@ -171,14 +171,50 @@ function Matches() {
   };
 
   const handleDelete = async (matchId) => {
-    const response = await fetch(`/matches/${matchId}`, {
-      method: "DELETE",
-    });
-    if (response.ok) {
-    fetchMatches();
-      if (selectedMatch?.id === matchId) {
-        setSelectedMatch(null);
+    // Find the match to show details in confirmation
+    const matchToDelete = matches.find(m => m.id === matchId);
+    if (!matchToDelete) return;
+
+    const roundCount = matchToDelete.rounds.length;
+    const matchType = matchToDelete.match_type;
+    const participants = matchType === "team" 
+      ? `${matchToDelete.team1_name} vs ${matchToDelete.team2_name}`
+      : `${matchToDelete.player1.name} vs ${matchToDelete.player2.name}`;
+
+    // Show confirmation dialog with match details
+    const confirmMessage = `Are you sure you want to delete this match?\n\n` +
+      `Type: ${matchType}\n` +
+      `Participants: ${participants}\n` +
+      `Date: ${formatDateForDisplay(matchToDelete.date)}\n` +
+      `Rounds: ${roundCount}\n\n` +
+      `This action cannot be undone.`;
+
+    const userConfirmed = window.confirm(confirmMessage);
+    if (!userConfirmed) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/matches/${matchId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ confirm: userConfirmed })
+      });
+
+      if (response.ok) {
+        fetchMatches();
+        if (selectedMatch?.id === matchId) {
+          setSelectedMatch(null);
+        }
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to delete match: ${errorData.detail || 'Unknown error occurred'}`);
       }
+    } catch (error) {
+      console.error('Error deleting match:', error);
+      alert('Failed to delete match: Network or server error');
     }
   };
 
@@ -356,7 +392,7 @@ function Matches() {
             try {
               console.log(`Deleting duplicate pin ${pin.id}`);
               await fetch(`/pins/${pin.id}`, { method: 'DELETE' });
-    } catch (error) {
+            } catch (error) {
               console.error(`Error deleting duplicate pin ${pin.id}:`, error);
             }
           }
