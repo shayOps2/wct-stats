@@ -1633,39 +1633,6 @@ function Matches() {
                         )}
                       </div>
 
-                      <div style={{ marginBottom: 8 }}>
-                        <label style={{ display: 'block', marginBottom: 4 }}>
-                          Round Time:
-                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <input
-                              type="number"
-                              value={editingRound.round_hour || 0}
-                              onChange={(e) => setEditingRound({ ...editingRound, round_hour: parseInt(e.target.value) || 0 })}
-                              min="0"
-                              placeholder="Hours"
-                              style={{ width: 60 }}
-                            />
-                            <input
-                              type="number"
-                              value={editingRound.round_minute || 0}
-                              onChange={(e) => setEditingRound({ ...editingRound, round_minute: parseInt(e.target.value) || 0 })}
-                              min="0"
-                              max="59"
-                              placeholder="Minutes"
-                              style={{ width: 60 }}
-                            />
-                            <input
-                              type="number"
-                              value={editingRound.round_second || 0}
-                              onChange={(e) => setEditingRound({ ...editingRound, round_second: parseInt(e.target.value) || 0 })}
-                              min="0"
-                              max="59"
-                              placeholder="Seconds"
-                              style={{ width: 60 }}
-                            />
-                          </div>
-                        </label>
-                      </div>
 
                       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                         <button type="submit">Update Tag Time</button>
@@ -1682,7 +1649,7 @@ function Matches() {
                               <strong>Round {editingRound.index + 1}</strong>
                             </div>
                             <div style={{ marginBottom: 8 }}>
-                              <label style={{ display: 'block', marginBottom: 4 }}>
+                              <label style={{ display: 'block', marginBottom: 5 }}>
                                 Round Time:
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                                   <input
