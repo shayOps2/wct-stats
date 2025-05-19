@@ -35,7 +35,8 @@ function Matches() {
     team1_player_ids: [],
     team2_player_ids: [],
     player1_id: "",
-    player2_id: ""
+    player2_id: "",
+    video_url: ""
   });
   const [selectedMatch, setSelectedMatch] = useState(null);
   const [roundData, setRoundData] = useState({
@@ -108,6 +109,7 @@ function Matches() {
     const submissionData = {
       match_type: matchType,
       date: formatDateForAPI(formData.date),
+      video_url: formData.video_url,
       ...(matchType === "team"
         ? {
             team1_name: formData.team1_name || generateTeamName(formData.team1_player_ids),
@@ -139,7 +141,8 @@ function Matches() {
         team1_player_ids: [],
         team2_player_ids: [],
         player1_id: "",
-        player2_id: ""
+        player2_id: "",
+        video_url: ""
       });
     }
   };
@@ -167,6 +170,60 @@ function Matches() {
       }
     } catch (error) {
       console.error("Error updating match date:", error);
+    }
+  };
+
+  const handleEditMatchVideoURL = async (matchId, newVideoURL) => {
+    try {
+      const response = await fetch(`/matches/${matchId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          video_url: newVideoURL
+        }),
+      });
+
+      if (response.ok) {
+        const updatedMatch = await response.json();
+        setMatches(matches.map(m => m.id === updatedMatch.id ? updatedMatch : m));
+        if (selectedMatch?.id === updatedMatch.id) {
+          setSelectedMatch(updatedMatch);
+        }
+      } else {
+        console.error("Failed to update match video URL");
+      }
+    } catch (error) {
+      console.error("Error updating match video URL:", error);
+    }
+  };
+
+  // Add a handler for updating the video URL
+  const handleUpdateVideoURL = async (matchId, newVideoURL) => {
+    try {
+      const response = await fetch(`/matches/${matchId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ video_url: newVideoURL }),
+      });
+
+      if (response.ok) {
+        const updatedMatch = await response.json();
+        setMatches(matches.map(m => m.id === updatedMatch.id ? updatedMatch : m));
+        if (selectedMatch?.id === updatedMatch.id) {
+          setSelectedMatch(updatedMatch);
+        }
+        alert("Video URL updated successfully!");
+      } else {
+        const error = await response.json();
+        alert(`Failed to update video URL: ${error.detail || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Error updating video URL:", error);
+      alert("An error occurred while updating the video URL.");
     }
   };
 
@@ -232,7 +289,9 @@ function Matches() {
         evader_id: roundData.evader_id,
         tag_made: roundData.tag_made,
         tag_time: roundData.tag_made ? parseFloat(roundData.tag_time) : null,
-        video_url: null
+        round_hour: roundData.round_hour || 0,
+        round_minute: roundData.round_minute || 0,
+        round_second: roundData.round_second || 0,
       }),
     });
 
@@ -272,6 +331,9 @@ function Matches() {
         tag_made: false,
         tag_time: 0,
         evading_team: "",
+        round_hour: 0,
+        round_minute: 0,
+        round_second: 0,        
         pinLocation: null
       });
     }
@@ -322,37 +384,49 @@ function Matches() {
 
   const handleEditRound = async (e) => {
     e.preventDefault();
+  
+    // Ensure editing is only allowed for valid rounds
     if (!selectedMatch || !editingRound || !editingRound.tag_made) {
-      // This function should only be callable if tag_made was true initially.
       console.warn("handleEditRound called inappropriately or tag_made is false.");
       setEditingRound(null);
       return;
     }
-    
+  
+    // Prevent editing rounds that affect the match score
+    if (selectedMatch.is_completed || selectedMatch.is_sudden_death) {
+      alert("Editing rounds is not allowed for completed matches or matches in sudden death.");
+      setEditingRound(null);
+      return;
+    }
+  
     try {
-      // Update only the tag_time in the match object for the specific round
+      // Prepare the payload for updating the round
       const roundUpdatePayload = {
         tag_time: parseFloat(editingRound.tag_time),
-        tag_made: editingRound.tag_made
+        tag_made: editingRound.tag_made,
+        round_hour: editingRound.round_hour || 0,
+        round_minute: editingRound.round_minute || 0,
+        round_second: editingRound.round_second || 0,
       };
-
+  
+      // Send the update request to the backend
       const matchRoundUpdateResponse = await fetch(`/matches/${selectedMatch.id}/rounds/${editingRound.index}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(roundUpdatePayload),
       });
-
+  
       if (!matchRoundUpdateResponse.ok) {
         const error = await matchRoundUpdateResponse.json();
-        alert(`Error updating round tag time: ${error.detail || 'Failed to update round'}`);
-        return; 
+        alert(`Error updating round: ${error.detail || 'Failed to update round'}`);
+        return;
       }
-
+  
+      // Update the match state with the updated round
       const updatedMatch = await matchRoundUpdateResponse.json();
-        setMatches(matches.map(m => m.id === updatedMatch.id ? updatedMatch : m));
-        setSelectedMatch(updatedMatch);
+      setMatches(matches.map(m => m.id === updatedMatch.id ? updatedMatch : m));
+      setSelectedMatch(updatedMatch);
       setEditingRound(null); // Clear editing state
-
     } catch (error) {
       console.error("Error in handleEditRound:", error);
       alert("An error occurred while saving round changes.");
@@ -383,7 +457,7 @@ function Matches() {
         if (pinsForThisRound.length > 1) {
           console.log(`Found ${pinsForThisRound.length} pins for match ${matchId}, round ${roundIndex}. Cleaning up duplicates...`);
           
-          // Delete all pins for this round except the one we're managing (if it exists)
+          // Delete all pins for this round except the one we're currently managing (if it exists)
           for (const pin of pinsForThisRound) {
             if (pinIdToManage && pin.id === pinIdToManage) {
               continue; // Skip the pin we're currently managing
@@ -482,6 +556,33 @@ function Matches() {
     }
   };
 
+  const handleUpdateRoundTime = async (matchId, roundIndex, roundTime) => {
+    try {
+      const response = await fetch(`/matches/${matchId}/rounds/${roundIndex}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          round_hour: roundTime.hour || 0,
+          round_minute: roundTime.minute || 0,
+          round_second: roundTime.second || 0,
+        }),
+      });
+
+      if (response.ok) {
+        const updatedMatch = await response.json();
+        setMatches(matches.map(m => m.id === updatedMatch.id ? updatedMatch : m));
+        setSelectedMatch(updatedMatch);
+        alert("Round time updated successfully!");
+      } else {
+        const error = await response.json();
+        alert(`Failed to update round time: ${error.detail || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Error updating round time:", error);
+      alert("An error occurred while updating the round time.");
+    }
+  };
+
   const handleDeleteLastRound = async () => {
     if (!selectedMatch || !selectedMatch.rounds || selectedMatch.rounds.length === 0) return;
     
@@ -529,7 +630,8 @@ function Matches() {
                   team1_player_ids: [],
                   team2_player_ids: [],
                   player1_id: "",
-                  player2_id: ""
+                  player2_id: "",
+                  video_url: ""
                 });
               }}
               style={{ marginLeft: 8 }}
@@ -546,6 +648,19 @@ function Matches() {
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
               style={{ marginLeft: 8 }}
+            />
+          </label>
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ marginRight: 16 }}>
+            Video URL:
+            <input
+              type="url"
+              value={formData.video_url || ""}
+              onChange={(e) => setFormData({ ...formData, video_url: e.target.value })}
+              placeholder="Enter video URL"
+              style={{ marginLeft: 8, width: "100%" }}
             />
           </label>
         </div>
@@ -833,6 +948,31 @@ function Matches() {
                     {formatDateForDisplay(match.date)}
                   </span>
                 </div>
+              </div>
+              <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <strong>Video URL:</strong>
+                <input
+                  type="url"
+                  value={selectedMatch?.id === match.id ? selectedMatch.video_url || "" : match.video_url || ""}
+                  onChange={(e) => {
+                    if (selectedMatch?.id === match.id) {
+                      setSelectedMatch({ ...selectedMatch, video_url: e.target.value });
+                    } else {
+                      setMatches(matches.map(m => m.id === match.id ? { ...m, video_url: e.target.value } : m));
+                    }
+                  }}
+                  placeholder="Edit video URL"
+                  style={{ border: '1px solid #ddd', borderRadius: 4, padding: '2px 4px', width: '100%' }}
+                />
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleUpdateVideoURL(match.id, selectedMatch?.id === match.id ? selectedMatch.video_url : match.video_url);
+                  }}
+                  style={{ padding: '4px 8px', background: '#007bff', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}
+                >
+                  Update
+                </button>
               </div>
               {match.match_type === "team" ? (
                 <>
@@ -1327,6 +1467,41 @@ function Matches() {
                 )}
                 {/* PIN LOCATION LOGIC - END */}
 
+                {/* Time Inputs for Round */}
+                <div style={{ marginBottom: 8 }}>
+                  <label style={{ display: 'block', marginBottom: 4 }}>
+                    Round Time:
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <input
+                        type="number"
+                        value={roundData.round_hour || 0}
+                        onChange={(e) => setRoundData({ ...roundData, round_hour: parseInt(e.target.value) || 0 })}
+                        min="0"
+                        placeholder="Hours"
+                        style={{ width: 60 }}
+                      />
+                      <input
+                        type="number"
+                        value={roundData.round_minute || 0}
+                        onChange={(e) => setRoundData({ ...roundData, round_minute: parseInt(e.target.value) || 0 })}
+                        min="0"
+                        max="59"
+                        placeholder="Minutes"
+                        style={{ width: 60 }}
+                      />
+                      <input
+                        type="number"
+                        value={roundData.round_second || 0}
+                        onChange={(e) => setRoundData({ ...roundData, round_second: parseInt(e.target.value) || 0 })}
+                        min="0"
+                        max="59"
+                        placeholder="Seconds"
+                        style={{ width: 60 }}
+                      />
+                    </div>
+                  </label>
+                </div>
+
                 <button type="submit">Add Round</button>
               </form>
             ) : (
@@ -1458,6 +1633,40 @@ function Matches() {
                         )}
                       </div>
 
+                      <div style={{ marginBottom: 8 }}>
+                        <label style={{ display: 'block', marginBottom: 4 }}>
+                          Round Time:
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <input
+                              type="number"
+                              value={editingRound.round_hour || 0}
+                              onChange={(e) => setEditingRound({ ...editingRound, round_hour: parseInt(e.target.value) || 0 })}
+                              min="0"
+                              placeholder="Hours"
+                              style={{ width: 60 }}
+                            />
+                            <input
+                              type="number"
+                              value={editingRound.round_minute || 0}
+                              onChange={(e) => setEditingRound({ ...editingRound, round_minute: parseInt(e.target.value) || 0 })}
+                              min="0"
+                              max="59"
+                              placeholder="Minutes"
+                              style={{ width: 60 }}
+                            />
+                            <input
+                              type="number"
+                              value={editingRound.round_second || 0}
+                              onChange={(e) => setEditingRound({ ...editingRound, round_second: parseInt(e.target.value) || 0 })}
+                              min="0"
+                              max="59"
+                              placeholder="Seconds"
+                              style={{ width: 60 }}
+                            />
+                          </div>
+                        </label>
+                      </div>
+
                       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                         <button type="submit">Update Tag Time</button>
                         <button 
@@ -1467,6 +1676,64 @@ function Matches() {
                         >
                           Update Pin Location
                         </button>
+                        {editingRound && (
+                          <form onSubmit={(e) => e.preventDefault()}>
+                            <div style={{ marginBottom: 8 }}>
+                              <strong>Round {editingRound.index + 1}</strong>
+                            </div>
+                            <div style={{ marginBottom: 8 }}>
+                              <label style={{ display: 'block', marginBottom: 4 }}>
+                                Round Time:
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                  <input
+                                    type="number"
+                                    value={editingRound.round_hour || 0}
+                                    onChange={(e) => setEditingRound({ ...editingRound, round_hour: parseInt(e.target.value) || 0 })}
+                                    min="0"
+                                    placeholder="Hours"
+                                    style={{ width: 60 }}
+                                  />
+                                  <input
+                                    type="number"
+                                    value={editingRound.round_minute || 0}
+                                    onChange={(e) => setEditingRound({ ...editingRound, round_minute: parseInt(e.target.value) || 0 })}
+                                    min="0"
+                                    max="59"
+                                    placeholder="Minutes"
+                                    style={{ width: 60 }}
+                                  />
+                                  <input
+                                    type="number"
+                                    value={editingRound.round_second || 0}
+                                    onChange={(e) => setEditingRound({ ...editingRound, round_second: parseInt(e.target.value) || 0 })}
+                                    min="0"
+                                    max="59"
+                                    placeholder="Seconds"
+                                    style={{ width: 60 }}
+                                  />
+                                </div>
+                              </label>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateRoundTime(selectedMatch.id, editingRound.index, {
+                                hour: editingRound.round_hour,
+                                minute: editingRound.round_minute,
+                                second: editingRound.round_second,
+                              })}
+                              style={{ background: "#007bff", color: "white", padding: "4px 8px", border: "none", borderRadius: "4px", cursor: "pointer" }}
+                            >
+                              Update Round Time
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingRound(null)}
+                              style={{ background: "#ccc", marginLeft: 8 }}
+                            >
+                              Cancel
+                            </button>
+                          </form>
+                        )}
                         <button 
                           type="button" 
                           onClick={() => setEditingRound(null)}

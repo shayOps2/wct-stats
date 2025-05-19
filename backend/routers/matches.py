@@ -77,7 +77,8 @@ async def create_match(
     team1_player_ids: List[str] = Body(None),
     team2_player_ids: List[str] = Body(None),
     player1_id: str = Body(None),
-    player2_id: str = Body(None)
+    player2_id: str = Body(None),
+    video_url: Optional[str] = Body(None)
 ):
     # Validate match type
     if match_type not in ["team", "1v1"]:
@@ -136,7 +137,8 @@ async def create_match(
             date=date,
             match_type=match_type,
             player1=player1,
-            player2=player2
+            player2=player2,
+            video_url=video_url
         )
     
     result = await add_match(match)
@@ -151,7 +153,9 @@ async def add_round(
     evader_id: str = Body(...),
     tag_made: bool = Body(...),
     tag_time: Optional[float] = Body(None),
-    video_url: Optional[str] = Body(None)
+    round_hour: Optional[int] = Body(None),
+    round_minute: Optional[int] = Body(None),
+    round_second: Optional[int] = Body(None)
 ):
     logger.info(f"Adding round to match {match_id}")
     logger.info(f"Request data: chaser={chaser_id}, evader={evader_id}, tag_made={tag_made}, tag_time={tag_time}")
@@ -171,6 +175,13 @@ async def add_round(
         raise HTTPException(status_code=404, detail="Player not found")
     
     logger.info(f"Found players: chaser={chaser.name}, evader={evader.name}")
+    
+    def generate_video_url(match_video_url, hour, minute, second):
+        """Generate a video URL based on the provided time."""
+        if hour is None or minute is None or second is None:
+            logger.info(f"Incomplete time data for video URL generation, hour={hour}, minute={minute}, second={second}")
+            return None
+        return f"{match_video_url}&t={hour}h{minute}m{second}s"
     
     # Validate players based on match type
     if match.match_type == "1v1":
@@ -247,6 +258,13 @@ async def add_round(
     if tag_made and (tag_time is None or tag_time < 0 or tag_time > 20):
         raise HTTPException(status_code=400, detail="Valid tag_time (0-20 seconds) is required when tag_made is true")
     
+    if match.video_url:
+        video_url = generate_video_url(match.video_url, round_hour, round_minute, round_second)
+    else:
+        video_url = None
+    
+    logger.info(f"Video URL: {video_url}")
+
     # Create new round
     new_round = Round(
         chaser=chaser,
@@ -562,7 +580,10 @@ async def delete_last_round(match_id: str):
 async def update_round(
     match_id: str,
     round_index: int,
-    tag_made: bool = Body(...),
+    round_hour: Optional[int] = Body(None),
+    round_minute: Optional[int] = Body(None),
+    round_second: Optional[int] = Body(None),
+    tag_made: Optional[bool] = Body(None),
     tag_time: Optional[float] = Body(None),
     video_url: Optional[str] = Body(None)
 ):
@@ -577,47 +598,24 @@ async def update_round(
     
     # Get the round to update
     round_to_update = match.rounds[round_index]
-    
-    # For completed matches, only allow updating tag_time if the round was already a tag
-    if match.is_completed:
-        if tag_made != round_to_update.tag_made:
-            raise HTTPException(
-                status_code=400, 
-                detail="Cannot change tag status in a completed match"
-            )
-        if not round_to_update.tag_made:
-            raise HTTPException(
-                status_code=400, 
-                detail="Cannot update tag time for an evaded round"
-            )
-        # Only allow updating tag_time
-        if tag_time is not None and (tag_time < 0 or tag_time > 20):
-            raise HTTPException(
-                status_code=400, 
-                detail="Valid tag_time (0-20 seconds) is required for a tagged round"
-            )
-        round_to_update.tag_time = tag_time
-    else:
-        # For matches in progress, check if in sudden death
-        if match.is_sudden_death:
-            raise HTTPException(
-                status_code=400, 
-                detail="Cannot edit rounds once sudden death has started"
-            )
-        
-        # As per frontend logic, tag_made is not supposed to change for existing rounds during an edit meant for time/pin.
-        # However, if it were to change, ensure tag_time consistency.
-        # For now, we primarily expect tag_time to be updated if tag_made was already true.
-        if round_to_update.tag_made: # If the round was a tag
-            if tag_time is not None and (tag_time < 0 or tag_time > 20):
+
+    # Allow editing tag_time for non-evasion rounds
+    if round_to_update.tag_made:
+        if tag_time is not None:
+            if tag_time < 0 or tag_time > 20:
                 raise HTTPException(
-                    status_code=400, 
+                    status_code=400,
                     detail="Valid tag_time (0-20 seconds) is required for a tagged round"
                 )
             round_to_update.tag_time = tag_time
-    
-    round_to_update.video_url = video_url
-    
+
+    # Allow editing round time for all rounds
+    if round_hour is not None or round_minute is not None or round_second is not None:
+        if match.video_url:
+            round_to_update.video_url = f"{match.video_url}&t={round_hour or 0}h{round_minute or 0}m{round_second or 0}s"
+        else:
+            round_to_update.video_url = None
+
     # Update match in database
     result = await add_match(match)
     if not result:
@@ -628,7 +626,8 @@ async def update_round(
 @router.patch("/{match_id}", response_model=Match)
 async def update_match_date(
     match_id: str,
-    date: datetime = Body(..., embed=True)
+    date: Optional[datetime] = Body(None, embed=True),
+    video_url: Optional[str] = Body(None, embed=True)
 ):
     """Update a match's date."""
     # First get the existing match
@@ -636,8 +635,17 @@ async def update_match_date(
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     
-    # Update only the date
-    match.date = date
+    # Update the date if provided
+    if date is not None:
+        match.date = date
+
+    # Update the video URL if provided
+    if video_url is not None:
+        match.video_url = video_url
+        # Update all rounds' video URLs to match the new base URL
+        update_round_video_urls(match, video_url)  # Update round video URLs
+        # Log the update        
+        logger.info(f"Updated video URL for match {match_id}: {video_url}")
     
     # Save the updated match
     updated_match = await update_match_in_db(match)
@@ -645,3 +653,14 @@ async def update_match_date(
         raise HTTPException(status_code=400, detail="Failed to update match")
     
     return updated_match
+
+def update_round_video_urls(match: Match, new_video_url: str):
+    """
+    Update all round video URLs to use the new base match video URL.
+    """
+    for round in match.rounds:
+        if round.video_url:
+            # Extract the time part from the existing video URL
+            time_part = round.video_url.split("&t=")[-1] if "&t=" in round.video_url else None
+            # Update the round's video URL with the new base URL and the same time part
+            round.video_url = f"{new_video_url}&t={time_part}" if time_part else new_video_url

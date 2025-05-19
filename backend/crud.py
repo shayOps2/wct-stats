@@ -127,7 +127,8 @@ def document_to_match(doc):
             team2_score=doc.get("team2_score", 0),
             is_sudden_death=doc.get("is_sudden_death", False),
             is_completed=doc.get("is_completed", False),
-            winner=doc.get("winner")
+            winner=doc.get("winner"),
+            video_url=doc.get("video_url")  # Add this line to include video_url
         )
     except Exception as e:
         print(f"Error creating Match object: {str(e)}")
