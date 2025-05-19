@@ -1,1 +1,5 @@
+round time apears twice for editing in the UI
+no edit evailable for evasion rounds
+tag time is not editable when match is completed
+
 when deleting round evader is empty (fixed after refresh)
