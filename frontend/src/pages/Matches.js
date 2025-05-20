@@ -1,5 +1,18 @@
 import React, { useEffect, useState } from "react";
 
+function extractTimeFromVideoURL(videoURL) {
+  const timeRegex = /[?&]t=(\d+)h(\d+)m(\d+)s/;
+  const match = videoURL.match(timeRegex);
+  if (match) {
+    return {
+      hour: parseInt(match[1], 10),
+      minute: parseInt(match[2], 10),
+      second: parseInt(match[3], 10),
+    };
+  }
+  return { hour: 0, minute: 0, second: 0 };
+}
+
 function formatDateForInput(dateString) {
   // Create a date object in local timezone
   const date = new Date(dateString);
@@ -50,6 +63,7 @@ function Matches() {
   const [showRounds, setShowRounds] = useState(true);
   const [editingRound, setEditingRound] = useState(null);
   const [currentMatchPins, setCurrentMatchPins] = useState([]);
+  const [editingRoundTime, setEditingRoundTime] = useState(null);
 
   // Fetch matches and players on component mount
   useEffect(() => {
@@ -382,43 +396,33 @@ function Matches() {
     }
   };
 
-  const handleEditRound = async (e) => {
+  const handleEditTagTime = async (e) => {
     e.preventDefault();
   
     // Ensure editing is only allowed for valid rounds
     if (!selectedMatch || !editingRound || !editingRound.tag_made) {
-      console.warn("handleEditRound called inappropriately or tag_made is false.");
-      setEditingRound(null);
-      return;
-    }
-  
-    // Prevent editing rounds that affect the match score
-    if (selectedMatch.is_completed || selectedMatch.is_sudden_death) {
-      alert("Editing rounds is not allowed for completed matches or matches in sudden death.");
+      console.warn("handleEditTagTime called inappropriately or tag_made is false.");
       setEditingRound(null);
       return;
     }
   
     try {
-      // Prepare the payload for updating the round
-      const roundUpdatePayload = {
+      // Prepare the payload for updating the tag time
+      const tagTimeUpdatePayload = {
         tag_time: parseFloat(editingRound.tag_time),
         tag_made: editingRound.tag_made,
-        round_hour: editingRound.round_hour || 0,
-        round_minute: editingRound.round_minute || 0,
-        round_second: editingRound.round_second || 0,
       };
   
       // Send the update request to the backend
       const matchRoundUpdateResponse = await fetch(`/matches/${selectedMatch.id}/rounds/${editingRound.index}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(roundUpdatePayload),
+        body: JSON.stringify(tagTimeUpdatePayload),
       });
   
       if (!matchRoundUpdateResponse.ok) {
         const error = await matchRoundUpdateResponse.json();
-        alert(`Error updating round: ${error.detail || 'Failed to update round'}`);
+        alert(`Error updating tag time: ${error.detail || 'Failed to update tag time'}`);
         return;
       }
   
@@ -427,9 +431,12 @@ function Matches() {
       setMatches(matches.map(m => m.id === updatedMatch.id ? updatedMatch : m));
       setSelectedMatch(updatedMatch);
       setEditingRound(null); // Clear editing state
+
+      // Show success alert
+      alert("Tag time updated successfully!");      
     } catch (error) {
-      console.error("Error in handleEditRound:", error);
-      alert("An error occurred while saving round changes.");
+      console.error("Error in handleEditTagTime:", error);
+      alert("An error occurred while saving tag time changes.");
     }
   };
 
@@ -1539,7 +1546,7 @@ function Matches() {
                 <div key={index} style={{ marginBottom: 8, padding: 8, border: "1px solid #eee", borderRadius: 4 }}>
                   {editingRound && editingRound.index === index ? (
                     // Editing form for round - REVISED to separate pin editing
-                    <form onSubmit={handleEditRound}>
+                    <form onSubmit={handleEditTagTime}>
                       <div style={{ marginBottom: 8 }}>
                         <strong>Round {index + 1} {selectedMatch.is_sudden_death && index >= (selectedMatch.match_type === "team" ? 16 : 4) && "(Sudden Death)"}</strong>
                       </div>
@@ -1719,6 +1726,7 @@ function Matches() {
                           <button 
                             onClick={() => {
                               const roundToEdit = selectedMatch.rounds[index]; // Already established that round.tag_made is true here
+                              const { hour, minute, second } = extractTimeFromVideoURL(round.video_url || "");
                               const existingPin = currentMatchPins.find(
                                 (p) => p.match_id === selectedMatch.id && p.round_index === index
                               );
@@ -1732,6 +1740,9 @@ function Matches() {
                                 existingPinId: existingPin ? existingPin.id : null,
                                 originalChaserId: roundToEdit.chaser.id,
                                 originalEvaderId: roundToEdit.evader.id,
+                                round_hour: hour,
+                                round_minute: minute,
+                                round_second: second,                                
                               });
                             }}
                             style={{ 
@@ -1742,7 +1753,7 @@ function Matches() {
                               borderRadius: '3px'
                             }}
                           >
-                            Edit Time/Pin
+                            Edit Round
                           </button>
                         )}
                       </div>
@@ -1756,6 +1767,98 @@ function Matches() {
                         <div style={{ fontSize: '0.8em', color: '#666', marginTop: 4 }}>
                           Pin location recorded ⚑
                         </div>
+                      )}
+                      {!round.tag_made && (
+                        <>
+                          <button
+                            onClick={() => {
+                              const { hour, minute, second } = extractTimeFromVideoURL(round.video_url || "");
+                              setEditingRoundTime({
+                                index,
+                                round_hour: hour,
+                                round_minute: minute,
+                                round_second: second,
+                              });
+                            }}
+                            style={{
+                              padding: '2px 8px',
+                              fontSize: '0.8em',
+                              background: '#f0f0f0',
+                              border: '1px solid #ccc',
+                              borderRadius: '3px',
+                              marginTop: '8px',
+                            }}
+                          >
+                            Edit Timestamp
+                          </button>
+
+                          {editingRoundTime && editingRoundTime.index === index && (
+                            <form
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                handleUpdateRoundTime(selectedMatch.id, editingRoundTime.index, {
+                                  hour: editingRoundTime.round_hour,
+                                  minute: editingRoundTime.round_minute,
+                                  second: editingRoundTime.round_second,
+                                });
+                                setEditingRoundTime(null); // Clear editing state after submission
+                              }}
+                              style={{ marginTop: '8px', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                            >
+                              <div style={{ marginBottom: '8px' }}>
+                                <label style={{ display: 'block', marginBottom: '4px' }}>
+                                  Round Time:
+                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <input
+                                      type="number"
+                                      value={editingRoundTime.round_hour || 0}
+                                      onChange={(e) =>
+                                        setEditingRoundTime({ ...editingRoundTime, round_hour: parseInt(e.target.value) || 0 })
+                                      }
+                                      min="0"
+                                      placeholder="Hours"
+                                      style={{ width: '60px' }}
+                                    />
+                                    <input
+                                      type="number"
+                                      value={editingRoundTime.round_minute || 0}
+                                      onChange={(e) =>
+                                        setEditingRoundTime({ ...editingRoundTime, round_minute: parseInt(e.target.value) || 0 })
+                                      }
+                                      min="0"
+                                      max="59"
+                                      placeholder="Minutes"
+                                      style={{ width: '60px' }}
+                                    />
+                                    <input
+                                      type="number"
+                                      value={editingRoundTime.round_second || 0}
+                                      onChange={(e) =>
+                                        setEditingRoundTime({ ...editingRoundTime, round_second: parseInt(e.target.value) || 0 })
+                                      }
+                                      min="0"
+                                      max="59"
+                                      placeholder="Seconds"
+                                      style={{ width: '60px' }}
+                                    />
+                                  </div>
+                                </label>
+                              </div>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button type="submit" style={{ background: '#007bff', color: 'white', padding: '4px 8px', border: 'none', borderRadius: '4px' }}>
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingRoundTime(null)}
+                                  style={{ background: '#ccc', padding: '4px 8px', border: 'none', borderRadius: '4px' }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </form>
+                          )}
+                        </>
                       )}
                     </>
                   )}
