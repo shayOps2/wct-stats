@@ -178,7 +178,6 @@ async def get_matches(query: Optional[Dict[str, Any]] = None):
 
 async def get_match(match_id: str):
     try:
-        print(f"Attempting to find match with ID: {match_id}")
         document = await db["matches"].find_one({"_id": bson.ObjectId(match_id)})
         if document:
             return document_to_match(document)

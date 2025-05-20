@@ -62,9 +62,9 @@ function QuadPins() {
     try {
       setLoading(true);
       setError(null);
-      
+  
       // Build the filter query
-      let pinsUrl = '/pins/?';
+      let pinsUrl = '/pins/enriched?';
       if (startDate) {
         pinsUrl += `start_date=${startDate.toISOString()}&`;
       }
@@ -77,25 +77,21 @@ function QuadPins() {
       if (type) {
         pinsUrl += `match_type=${type}&`;
       }
-      
-      // Add a flag to indicate we want all match data included with the pins
-      pinsUrl += `include_match_data=true`;
-      
-      console.log('Fetching pins from:', pinsUrl);
-      
-      // Fetch pins with match data in a single request
-      const pinsResponse = await fetch(pinsUrl);
-      if (!pinsResponse.ok) {
-        throw new Error('Failed to fetch pins');
+  
+      console.log('Fetching enriched pins from:', pinsUrl);
+  
+      const response = await fetch(pinsUrl);
+      if (!response.ok) {
+        throw new Error('Failed to fetch enriched pins');
       }
-      
-      const pins = await pinsResponse.json();
-      console.log('Received pins:', pins);
-      setAllPins(pins);
+  
+      const enrichedPins = await response.json();
+      console.log('Received enriched pins:', enrichedPins);
+      setAllPins(enrichedPins);
       setLoading(false);
       setApplyingFilters(false);
     } catch (err) {
-      console.error('Error fetching pins:', err);
+      console.error('Error fetching enriched pins:', err);
       setError("Failed to load tag locations. Please try again later.");
       setLoading(false);
       setApplyingFilters(false);
@@ -272,9 +268,15 @@ function QuadPins() {
                     title={
                       <div>
                         <div>Date: {pin.matchDetails?.date || 'N/A'}</div>
-                        <div>Match Type: {pin.matchDetails?.type || 'N/A'}</div>
                         <div>Chaser: {pin.matchDetails?.chaser || 'N/A'}</div>
                         <div>Evader: {pin.matchDetails?.evader || 'N/A'}</div>
+                        {pin.matchDetails?.video_url && (
+                          <div>
+                            <a href={pin.matchDetails.video_url} target="_blank" rel="noopener noreferrer">
+                              Watch Video
+                            </a>
+                          </div>
+                        )}
                         <div style={{ fontSize: '0.8em', color: '#888' }}>
                           Position: ({position.x.toFixed(1)}%, {position.y.toFixed(1)}%)
                         </div>

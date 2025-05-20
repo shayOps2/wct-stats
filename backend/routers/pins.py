@@ -1,8 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional, Dict
 from pydantic import BaseModel
-from datetime import datetime
-import bson
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import logging
 
@@ -27,6 +26,80 @@ async def create_new_pin(
     if not created_pin:
         raise HTTPException(status_code=400, detail="Error creating pin")
     return created_pin
+
+# get pins with match and round details
+@router.get("/enriched", response_model=List[Dict])
+async def get_enriched_pins(
+    start_date: Optional[datetime] = Query(None, description="Filter pins by match date start"),
+    end_date: Optional[datetime] = Query(None, description="Filter pins by match date end"),
+    player_id: Optional[str] = Query(None, description="Filter pins by player (chaser or evader)"),
+    opponent_id: Optional[str] = Query(None, description="Filter pins by opponent player"),
+    role: Optional[str] = Query(None, description="Filter pins by role ('chaser' or 'evader')"),
+    match_type: Optional[str] = Query(None, description="Filter pins by match type")
+) -> List[Dict]:
+    """
+    Fetch pins enriched with match and round details.
+    """
+    # Build the filter query for MongoDB
+    filter_query = {}
+
+    # Filter by player (chaser or evader)
+    if player_id:
+        if role == "chaser":
+            filter_query["chaser_id"] = player_id
+        elif role == "evader":
+            filter_query["evader_id"] = player_id
+        else:
+            filter_query["$or"] = [{"chaser_id": player_id}, {"evader_id": player_id}]
+
+    # Fetch pins from the database
+    pins = await get_pins(filter_query)
+    enriched_pins = []
+
+    # Ensure input dates are timezone-aware
+    if start_date and start_date.tzinfo is None:
+        start_date = start_date.replace(tzinfo=timezone.utc)
+    if end_date and end_date.tzinfo is None:
+        end_date = end_date.replace(tzinfo=timezone.utc)
+
+    for pin in pins:
+        match = await get_match(pin.match_id)
+        if not match:
+            continue
+
+        # Ensure match.date is timezone-aware
+        if match.date.tzinfo is None:
+            match.date = match.date.replace(tzinfo=timezone.utc)
+
+        # Apply additional filters based on match properties
+        if start_date and match.date < start_date:
+            continue
+        if end_date and match.date > end_date:
+            continue
+        if match_type and match.match_type != match_type:
+            continue
+
+        # Filter by opponent
+        if opponent_id:
+            round_data = match.rounds[pin.round_index]
+            if round_data.chaser.id != opponent_id and round_data.evader.id != opponent_id:
+                continue
+
+        # Enrich the pin with match and round details
+        round_data = match.rounds[pin.round_index]
+        enriched_pins.append({
+            "id": pin.id,
+            "location": pin.location,
+            "round_index": pin.round_index,
+            "matchDetails": {
+                "date": match.date.strftime("%Y-%m-%d"),
+                "chaser": round_data.chaser.name if round_data.chaser else "Unknown",
+                "evader": round_data.evader.name if round_data.evader else "Unknown",
+                "video_url": round_data.video_url or None
+            }
+        })
+
+    return enriched_pins
 
 @router.get("/", response_model=List[Pin])
 async def read_pins(

@@ -1697,14 +1697,7 @@ function Matches() {
                               })}
                               style={{ background: "#007bff", color: "white", padding: "4px 8px", border: "none", borderRadius: "4px", cursor: "pointer" }}
                             >
-                              Update Round Time
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setEditingRound(null)}
-                              style={{ background: "#ccc", marginLeft: 8 }}
-                            >
-                              Cancel
+                              Update Timestamp
                             </button>
                           </form>
                         )}

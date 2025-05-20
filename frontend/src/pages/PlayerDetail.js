@@ -139,71 +139,63 @@ function PlayerDetail() {
     }
   }, [selectedOpponent]);
 
-  // Add a function to fetch pins for the selected player
-  const fetchPlayerPins = useCallback(async () => {
-    if (!selectedPlayer) return;
+const fetchPlayerPins = useCallback(async () => {
+  if (!selectedPlayer) return;
+
+  try {
+    setLoadingPins(true);
     
-    try {
-      setLoadingPins(true);
-      
-      // Get all matches the player participated in
-      const matchesResponse = await fetch(`/matches/?player_id=${selectedPlayer}`);
-      
-      if (!matchesResponse.ok) {
-        console.error("Failed to fetch player matches");
-        setLoadingPins(false);
-        return;
-      }
-      
-      const matches = await matchesResponse.json();
-      
-      // No need to proceed if no matches
-      if (!matches || matches.length === 0) {
-        setPlayerPins([]);
-        setLoadingPins(false);
-        return;
-      }
-      
-      // Fetch pins for each match
-      const allPins = [];
-      for (const match of matches) {
-        const pinsResponse = await fetch(`/pins/?match_id=${match.id}`);
-        if (pinsResponse.ok) {
-          const matchPins = await pinsResponse.json();
-          
-          // Only include pins where the player was either chaser or evader
-          const playerPins = matchPins.filter(pin => 
-            pin.chaser_id === selectedPlayer || pin.evader_id === selectedPlayer
-          );
-          
-          // Add match details to each pin for context
-          const pinsWithContext = playerPins.map(pin => {
-            // Find the round details
-            const round = match.rounds[pin.round_index];
-            return {
-              ...pin,
-              matchDetails: {
-                date: new Date(match.date).toLocaleDateString(),
-                type: match.match_type,
-                opponent: pin.chaser_id === selectedPlayer ? 
-                  round.evader.name : round.chaser.name,
-                playerRole: pin.chaser_id === selectedPlayer ? 'Chaser' : 'Evader'
-              }
-            };
-          });
-          
-          allPins.push(...pinsWithContext);
-        }
-      }
-      
-      setPlayerPins(allPins);
-      setLoadingPins(false);
-    } catch (error) {
-      console.error("Error fetching player pins:", error);
-      setLoadingPins(false);
-      setPlayerPins([]);
+    // Build query parameters for the enriched pins endpoint
+    const params = new URLSearchParams();
+    params.append('player_id', selectedPlayer);
+
+    // Add optional filters if they exist
+    if (selectedOpponent) {
+      params.append('opponent_id', selectedOpponent);
     }
-  }, [selectedPlayer]);
+    if (matchType) {
+      params.append('match_type', matchType);
+    }
+    if (dateRange && dateRange[0]) {
+      params.append('start_date', dateRange[0].toISOString());
+    }
+    if (dateRange && dateRange[1]) {
+      params.append('end_date', dateRange[1].toISOString());
+    }
+
+    const response = await fetch(`/pins/enriched?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch pins');
+    }
+
+    const enrichedPins = await response.json();
+    
+  // Update the transformation in fetchPlayerPins function:
+
+  const transformedPins = enrichedPins.map(pin => ({
+    ...pin,
+    // Map chaser_id and evader_id from the backend response
+    chaser_id: players.find(p => p.name === pin.matchDetails.chaser)?.id,
+    evader_id: players.find(p => p.name === pin.matchDetails.evader)?.id,
+    matchDetails: {
+      ...pin.matchDetails,
+      playerRole: pin.matchDetails.chaser === players.find(p => p.id === selectedPlayer)?.name 
+        ? 'chaser' 
+        : 'evader',
+      opponent: pin.matchDetails.chaser === players.find(p => p.id === selectedPlayer)?.name
+        ? pin.matchDetails.evader
+        : pin.matchDetails.chaser,
+      type: pin.matchDetails.type || 'Unknown'
+    }
+  }));
+
+    setPlayerPins(transformedPins);
+  } catch (err) {
+    console.error('Error fetching pins:', err);
+  } finally {
+    setLoadingPins(false);
+  }
+}, [selectedPlayer, selectedOpponent, matchType, dateRange]);
 
   // Fetch pins when a player is selected
   useEffect(() => {
@@ -217,35 +209,13 @@ function PlayerDetail() {
   // Add a function to filter pins based on current filters
   const getFilteredPins = useCallback(() => {
     return playerPins.filter(pin => {
-      // Filter by role
+      // Filter by role toggles
       if (!showChaserPins && pin.chaser_id === selectedPlayer) return false;
       if (!showEvaderPins && pin.evader_id === selectedPlayer) return false;
-
-      // Filter by opponent
-      if (selectedOpponent) {
-        const isOpponentInvolved = 
-          (pin.chaser_id === selectedOpponent || pin.evader_id === selectedOpponent);
-        if (!isOpponentInvolved) return false;
-      }
-
-      // Filter by match type
-      if (matchType && pin.matchDetails.type !== matchType) return false;
-
-      // Filter by date range
-      if (dateRange && dateRange[0]) {
-        const pinDate = new Date(pin.matchDetails.date);
-        const startDate = dateRange[0].startOf('day').toDate();
-        if (pinDate < startDate) return false;
-
-        if (dateRange[1]) {
-          const endDate = dateRange[1].endOf('day').toDate();
-          if (pinDate > endDate) return false;
-        }
-      }
-
+  
       return true;
     });
-  }, [playerPins, showChaserPins, showEvaderPins, selectedOpponent, matchType, dateRange, selectedPlayer]);
+  }, [playerPins, showChaserPins, showEvaderPins, selectedPlayer]);
 
   if (loading) {
     return (
@@ -608,9 +578,15 @@ function PlayerDetail() {
                           title={
                             <div>
                               <div>Date: {pin.matchDetails.date}</div>
-                              <div>Match Type: {pin.matchDetails.type}</div>
                               <div>Against: {pin.matchDetails.opponent}</div>
                               <div>Role: {pin.matchDetails.playerRole}</div>
+                              {pin.matchDetails?.video_url && (
+                                <div>
+                                  <a href={pin.matchDetails.video_url} target="_blank" rel="noopener noreferrer">
+                                    Watch Video
+                                  </a>
+                                </div>
+                              )}                              
                               <div style={{ fontSize: '0.8em', color: '#888' }}>
                                 Position: ({pin.location.x.toFixed(1)}%, {pin.location.y.toFixed(1)}%)
                               </div>
