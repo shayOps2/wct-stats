@@ -1477,7 +1477,7 @@ function Matches() {
                 {/* Time Inputs for Round */}
                 <div style={{ marginBottom: 8 }}>
                   <label style={{ display: 'block', marginBottom: 4 }}>
-                    Round Time:
+                    Timestamp:
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       <input
                         type="number"
@@ -1657,7 +1657,7 @@ function Matches() {
                             </div>
                             <div style={{ marginBottom: 8 }}>
                               <label style={{ display: 'block', marginBottom: 5 }}>
-                                Round Time:
+                                Timestamp:
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                                   <input
                                     type="number"
@@ -1807,7 +1807,7 @@ function Matches() {
                             >
                               <div style={{ marginBottom: '8px' }}>
                                 <label style={{ display: 'block', marginBottom: '4px' }}>
-                                  Round Time:
+                                  Timestamp:
                                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                     <input
                                       type="number"
