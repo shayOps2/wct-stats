@@ -122,7 +122,7 @@ async def get_player_statistics(
         match_type=match_type
     )
     
-    return stats.to_dict()
+    return stats
 
 @router.get("/{player_id}/versus/{opponent_id}")
 async def get_versus_statistics(
@@ -146,4 +146,4 @@ async def get_versus_statistics(
         opponent_id=opponent_id
     )
     
-    return stats.to_dict()
+    return stats

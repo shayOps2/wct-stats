@@ -12,12 +12,14 @@ class PlayerStats:
         self.total_evasion_attempts: int = 0
         self.successful_evasions: int = 0
         self.total_evasion_time: float = 0.0
-        
+        self.evasion_rounds: List[Dict] = []  # Add this to store evasion rounds
+
         # Defense (as Chaser)
         self.total_chase_attempts: int = 0
         self.successful_tags: int = 0
         self.total_tag_time: float = 0.0
-    
+        self.got_evaded_rounds: List[Dict] = []  # Add this to store got evaded rounds
+
         # Match statistics
         self.matches_played: int = 0
         self.matches_won: int = 0
@@ -58,20 +60,22 @@ class PlayerStats:
                 "total_evasion_attempts": self.total_evasion_attempts,
                 "successful_evasions": self.successful_evasions,
                 "evasion_success_rate": round(self.evasion_success_rate * 100, 2),
-                "average_evasion_time": round(self.average_evasion_time, 2)
+                "average_evasion_time": round(self.average_evasion_time, 2),
+                "evasion_rounds": self.evasion_rounds,  # Include evasion rounds
             },
             "defense": {
                 "total_chase_attempts": self.total_chase_attempts,
                 "successful_tags": self.successful_tags,
                 "tagging_success_rate": round(self.tagging_success_rate * 100, 2),
-                "average_tag_time": round(self.average_tag_time, 2)
+                "average_tag_time": round(self.average_tag_time, 2),
+                "got_evaded_rounds": self.got_evaded_rounds,  # Include got evaded rounds
             },
             "overall": {
                 "total_rounds": self.total_chase_attempts + self.total_evasion_attempts,
                 "matches_played": self.matches_played,
                 "matches_won": self.matches_won,
-                "win_percentage": round(self.win_percentage, 2)
-            }
+                "win_percentage": round(self.win_percentage, 2),
+            },
         }
 
 async def calculate_player_stats(
@@ -80,7 +84,7 @@ async def calculate_player_stats(
     end_date: Optional[datetime] = None,
     match_type: Optional[str] = None,
     opponent_id: Optional[str] = None
-) -> PlayerStats:
+) -> Dict:
     """
     Calculate player statistics based on their match history.
     
@@ -92,7 +96,7 @@ async def calculate_player_stats(
         opponent_id: Optional opponent ID for head-to-head stats
     
     Returns:
-        PlayerStats object containing calculated statistics
+        Dictionary containing calculated statistics and detailed round data
     """
     # Create base query filter
     query = {
@@ -101,6 +105,9 @@ async def calculate_player_stats(
             {"rounds.chaser.id": player_id}
         ]
     }
+
+    processed_match_ids = set()
+
     
     # Add date filters if provided
     if start_date:
@@ -158,9 +165,10 @@ async def calculate_player_stats(
     
     stats = PlayerStats()
     
-    # Keep track of unique matches for match statistics
-    processed_match_ids = set()
-    
+    # Add lists to store detailed round data
+    evasion_rounds = []
+    got_evaded_rounds = []
+
     for match in matches:
         # Check if player was involved in this match
         player_involved = False
@@ -223,6 +231,20 @@ async def calculate_player_stats(
             ):
                 continue
             
+            # Collect detailed round data
+            round_data = {
+                "date": match.date,
+                "opponent": round.chaser.name if is_evader else round.evader.name,
+                "video_url": round.video_url,
+                "tag_made": round.tag_made, 
+            }
+
+            # Add to the appropriate list
+            if is_evader and not round.tag_made:
+                evasion_rounds.append(round_data)
+            if is_chaser and not round.tag_made:
+                got_evaded_rounds.append(round_data)
+            
             # Update evader stats
             if is_evader:
                 stats.total_evasion_attempts += 1
@@ -238,5 +260,9 @@ async def calculate_player_stats(
                 if round.tag_made:
                     stats.successful_tags += 1
                     stats.total_tag_time += round.tag_time
-    
-    return stats 
+
+    # Assign round data to the PlayerStats object
+    stats.evasion_rounds = evasion_rounds
+    stats.got_evaded_rounds = got_evaded_rounds
+
+    return stats.to_dict()

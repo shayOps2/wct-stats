@@ -11,11 +11,14 @@ import {
   Divider, 
   Statistic,
   Tooltip,
-  Empty
+  Empty,
+  Collapse,
+  List
 } from "antd";
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
+const { Panel } = Collapse;
 
 function PlayerDetail() {
   const [loading, setLoading] = useState(true);
@@ -477,9 +480,35 @@ const fetchPlayerPins = useCallback(async () => {
                     />
                   </Col>
                 </Row>
+                {/* Collapsible view for evasion rounds */}
+                <Collapse style={{ marginTop: 16 }}>
+                  <Panel header="Evasion Rounds" key="1">
+                    <List
+                      dataSource={playerStats.offense.evasion_rounds} // Now populated by the backend
+                      renderItem={(round) => (
+                        <List.Item>
+                          <List.Item.Meta
+                            title={`Date: ${new Date(round.date).toLocaleDateString()}`}
+                            description={`Against: ${round.opponent}`}
+                          />
+                          {round.video_url && (
+                            <Button
+                              type="link"
+                              href={round.video_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              Watch Video
+                            </Button>
+                          )}
+                        </List.Item>
+                      )}
+                    />
+                  </Panel>
+                </Collapse>
               </Card>
             </Col>
-            
+
             <Col xs={24} md={12}>
               <Card title="Defense (as Chaser)" bordered={false}>
                 <Row gutter={[16, 16]}>
@@ -511,6 +540,32 @@ const fetchPlayerPins = useCallback(async () => {
                     />
                   </Col>
                 </Row>
+                {/* Collapsible view for got evaded rounds */}
+                <Collapse style={{ marginTop: 16 }}>
+                  <Panel header="Got Evaded Rounds" key="2">
+                    <List
+                      dataSource={playerStats.defense.got_evaded_rounds} // Now populated by the backend
+                      renderItem={(round) => (
+                        <List.Item>
+                          <List.Item.Meta
+                            title={`Date: ${new Date(round.date).toLocaleDateString()}`}
+                            description={`Against: ${round.opponent}`}
+                          />
+                          {round.video_url && (
+                            <Button
+                              type="link"
+                              href={round.video_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              Watch Video
+                            </Button>
+                          )}
+                        </List.Item>
+                      )}
+                    />
+                  </Panel>
+                </Collapse>
               </Card>
             </Col>
             
@@ -635,4 +690,4 @@ const fetchPlayerPins = useCallback(async () => {
   );
 }
 
-export default PlayerDetail; 
+export default PlayerDetail;
