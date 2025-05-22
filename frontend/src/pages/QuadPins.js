@@ -11,7 +11,7 @@ import {
   Empty,
   Select
 } from "antd";
-
+import { BACKEND_URL } from "../config"; // Import the constant
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 
@@ -50,7 +50,7 @@ function QuadPins() {
 
   const fetchPlayers = async () => {
     try {
-      const response = await fetch('/players/');
+      const response = await fetch(`${BACKEND_URL}/players/`);
       const playerList = await response.json();
       setPlayers(playerList);
     } catch (err) {
@@ -64,7 +64,7 @@ function QuadPins() {
       setError(null);
   
       // Build the filter query
-      let pinsUrl = '/pins/enriched?';
+      let pinsUrl = `${BACKEND_URL}/pins/enriched?`;
       if (startDate) {
         pinsUrl += `start_date=${startDate.toISOString()}&`;
       }

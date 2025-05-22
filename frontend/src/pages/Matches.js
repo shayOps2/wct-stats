@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { BACKEND_URL } from "../config"; // Import the constant
 
 function extractTimeFromVideoURL(videoURL) {
   const timeRegex = /[?&]t=(\d+)h(\d+)m(\d+)s/;
@@ -76,7 +77,7 @@ function Matches() {
     if (selectedMatch && selectedMatch.id) {
       const fetchPinsForMatch = async () => {
         try {
-          const response = await fetch(`/pins/?match_id=${selectedMatch.id}`);
+          const response = await fetch(`${BACKEND_URL}/pins/?match_id=${selectedMatch.id}`);
           if (response.ok) {
             const pins = await response.json();
             setCurrentMatchPins(pins);
@@ -96,13 +97,13 @@ function Matches() {
   }, [selectedMatch]);
 
   const fetchMatches = async () => {
-    const response = await fetch("/matches/");
+    const response = await fetch(`${BACKEND_URL}/matches/`);
     const data = await response.json();
     setMatches(data);
   };
 
   const fetchPlayers = async () => {
-    const response = await fetch("/players/");
+    const response = await fetch(`${BACKEND_URL}/players/`);
     const data = await response.json();
     setPlayers(data);
   };
@@ -137,7 +138,7 @@ function Matches() {
           }),
     };
 
-    const response = await fetch("/matches/", {
+    const response = await fetch(`${BACKEND_URL}/matches/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -163,7 +164,7 @@ function Matches() {
 
   const handleEditDate = async (matchId, newDate) => {
     try {
-      const response = await fetch(`/matches/${matchId}`, {
+      const response = await fetch(`${BACKEND_URL}/matches/${matchId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -189,7 +190,7 @@ function Matches() {
 
   const handleEditMatchVideoURL = async (matchId, newVideoURL) => {
     try {
-      const response = await fetch(`/matches/${matchId}`, {
+      const response = await fetch(`${BACKEND_URL}/matches/${matchId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -216,7 +217,7 @@ function Matches() {
   // Add a handler for updating the video URL
   const handleUpdateVideoURL = async (matchId, newVideoURL) => {
     try {
-      const response = await fetch(`/matches/${matchId}`, {
+      const response = await fetch(`${BACKEND_URL}/matches/${matchId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -266,7 +267,7 @@ function Matches() {
     }
 
     try {
-      const response = await fetch(`/matches/${matchId}`, {
+      const response = await fetch(`${BACKEND_URL}/matches/${matchId}`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -293,7 +294,7 @@ function Matches() {
     e.preventDefault();
     if (!selectedMatch || !canAddMoreRounds(selectedMatch)) return;
 
-    const response = await fetch(`/matches/${selectedMatch.id}/rounds`, {
+    const response = await fetch(`${BACKEND_URL}/matches/${selectedMatch.id}/rounds`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -324,7 +325,7 @@ function Matches() {
           round_index: updatedMatch.rounds.length - 1,
         };
         try {
-          const pinResponse = await fetch('/pins/', {
+          const pinResponse = await fetch(`${BACKEND_URL}/pins/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(newPin),
@@ -414,7 +415,7 @@ function Matches() {
       };
   
       // Send the update request to the backend
-      const matchRoundUpdateResponse = await fetch(`/matches/${selectedMatch.id}/rounds/${editingRound.index}`, {
+      const matchRoundUpdateResponse = await fetch(`${BACKEND_URL}/matches/${selectedMatch.id}/rounds/${editingRound.index}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(tagTimeUpdatePayload),
@@ -472,7 +473,7 @@ function Matches() {
             
             try {
               console.log(`Deleting duplicate pin ${pin.id}`);
-              await fetch(`/pins/${pin.id}`, { method: 'DELETE' });
+              await fetch(`${BACKEND_URL}/pins/${pin.id}`, { method: 'DELETE' });
             } catch (error) {
               console.error(`Error deleting duplicate pin ${pin.id}:`, error);
             }
@@ -485,7 +486,7 @@ function Matches() {
           // User wants a pin, and one existed: UPDATE IT
           console.log(`Updating pin ${pinIdToManage} with location:`, newPinLocation);
           try {
-            const pinUpdateResponse = await fetch(`/pins/${pinIdToManage}`, {
+            const pinUpdateResponse = await fetch(`${BACKEND_URL}/pins/${pinIdToManage}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ location: newPinLocation }),
@@ -511,7 +512,7 @@ function Matches() {
           };
           console.log("Creating new pin:", pinToCreate);
           try {
-            const pinCreateResponse = await fetch(`/pins/`, {
+            const pinCreateResponse = await fetch(`${BACKEND_URL}/pins/`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(pinToCreate),
@@ -531,7 +532,7 @@ function Matches() {
         // No pin wanted, but one existed: DELETE IT
         console.log(`Deleting pin ${pinIdToManage}`);
         try {
-          const pinDeleteResponse = await fetch(`/pins/${pinIdToManage}`, { method: 'DELETE' });
+          const pinDeleteResponse = await fetch(`${BACKEND_URL}/pins/${pinIdToManage}`, { method: 'DELETE' });
           if (!pinDeleteResponse.ok && pinDeleteResponse.status !== 204) {
             const error = await pinDeleteResponse.text();
             alert(`Failed to delete pin: ${error}`);
@@ -546,7 +547,7 @@ function Matches() {
 
       // After successful pin operation, refetch pins for consistency
       if (selectedMatch && selectedMatch.id) {
-        const pinsResponse = await fetch(`/pins/?match_id=${selectedMatch.id}`);
+        const pinsResponse = await fetch(`${BACKEND_URL}/pins/?match_id=${selectedMatch.id}`);
         if (pinsResponse.ok) {
           setCurrentMatchPins(await pinsResponse.json());
           alert("Pin location updated successfully!");
@@ -565,7 +566,7 @@ function Matches() {
 
   const handleUpdateRoundTime = async (matchId, roundIndex, roundTime) => {
     try {
-      const response = await fetch(`/matches/${matchId}/rounds/${roundIndex}`, {
+      const response = await fetch(`${BACKEND_URL}/matches/${matchId}/rounds/${roundIndex}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -598,7 +599,7 @@ function Matches() {
     }
 
     try {
-      const response = await fetch(`/matches/${selectedMatch.id}/rounds/last`, {
+      const response = await fetch(`${BACKEND_URL}/matches/${selectedMatch.id}/rounds/last`, {
         method: "DELETE",
       });
 

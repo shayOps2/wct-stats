@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { BACKEND_URL } from "../config"; // Import the constant
 
 function Players() {
   const [players, setPlayers] = useState([]);
@@ -6,7 +7,7 @@ function Players() {
   const [image, setImage] = useState(null);
 
   const fetchPlayers = () => {
-    fetch("/players/")
+    fetch(`${BACKEND_URL}/players/`)
       .then(res => res.json())
       .then(setPlayers);
   };
@@ -17,7 +18,7 @@ function Players() {
     const formData = new FormData();
     formData.append("name", name);
     if (image) formData.append("image", image);
-    await fetch("/players/", {
+    await fetch(`${BACKEND_URL}/players/`, {
       method: "POST",
       body: formData,
     });
@@ -27,7 +28,7 @@ function Players() {
   };
 
   const handleDelete = async id => {
-    await fetch(`/players/${id}`, { method: "DELETE" });
+    await fetch(`${BACKEND_URL}/players/${id}`, { method: "DELETE" });
     fetchPlayers();
   };
 
@@ -57,7 +58,7 @@ function Players() {
             {p.image_id && (
               <div style={{ width: "100%", paddingTop: "100%", position: "relative", marginBottom: 8 }}>
                 <img 
-                  src={`/players/${p.id}/image`} 
+                  src={`${BACKEND_URL}/players/${p.id}/image`} 
                   alt={p.name} 
                   style={{ 
                     position: "absolute",

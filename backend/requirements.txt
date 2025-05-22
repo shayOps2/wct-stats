@@ -4,3 +4,4 @@ pydantic
 python-multipart
 uvicorn
 pymongo
+gunicorn

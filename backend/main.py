@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 import os
 from database import init_db, setup_database
 import logging
-
+from cors import add_cors_middleware  
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,6 +28,8 @@ app.mount("/images", StaticFiles(directory="images"), name="images")
 app.include_router(players.router, prefix="/players", tags=["Players"])
 app.include_router(matches.router, prefix="/matches", tags=["Matches"])
 app.include_router(pins.router)
+
+add_cors_middleware(app)
 
 @app.get("/")
 def root():

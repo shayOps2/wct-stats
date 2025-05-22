@@ -15,6 +15,7 @@ import {
   Collapse,
   List
 } from "antd";
+import { BACKEND_URL } from "../config"; // Import the constant
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -45,7 +46,7 @@ function PlayerDetail() {
       setLoading(true);
       setError(null);
       // Fetch all players
-      const response = await fetch('/players/');
+      const response = await fetch(`${BACKEND_URL}/players/`);
       const playerList = await response.json();
       setPlayers(playerList);
       setLoading(false);
@@ -68,7 +69,7 @@ function PlayerDetail() {
       
       // If opponent is selected, use the head-to-head endpoint
       if (selectedOpponent) {
-        url = `/players/${selectedPlayer}/versus/${selectedOpponent}?`;
+        url = `${BACKEND_URL}/players/${selectedPlayer}/versus/${selectedOpponent}?`;
         
         // Add date filters if provided
         if (dateRange) {
@@ -88,7 +89,7 @@ function PlayerDetail() {
         statsResponse = await fetch(url);
       } else {
         // Otherwise use the regular stats endpoint
-        url = `/players/${selectedPlayer}/stats?`;
+        url = `${BACKEND_URL}/players/${selectedPlayer}/stats?`;
         
         // Add date filters if provided
         if (dateRange) {
@@ -166,7 +167,7 @@ const fetchPlayerPins = useCallback(async () => {
       params.append('end_date', dateRange[1].toISOString());
     }
 
-    const response = await fetch(`/pins/enriched?${params.toString()}`);
+    const response = await fetch(`${BACKEND_URL}/pins/enriched?${params.toString()}`);
     if (!response.ok) {
       throw new Error('Failed to fetch pins');
     }

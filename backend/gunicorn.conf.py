@@ -1,0 +1,3 @@
+loglevel = "info"
+accesslog = "-"
+errorlog = "-"

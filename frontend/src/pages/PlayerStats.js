@@ -10,6 +10,7 @@ import {
   Button, 
   Divider
 } from "antd";
+import { BACKEND_URL } from "../config"; // Import the constant
 
 const { RangePicker } = DatePicker;
 
@@ -30,7 +31,7 @@ function PlayerStats() {
       setError(null);
       
       // Build URL with optional date filters
-      let url = '/players/';
+      let url = `${BACKEND_URL}/players/`;
       if (startDate || endDate) {
         url += '?';
         if (startDate) {
@@ -49,7 +50,7 @@ function PlayerStats() {
       const playersWithStats = await Promise.all(
         playerList.map(async (player) => {
           // Add date filters to the stats endpoint if provided
-          let statsUrl = `/players/${player.id}/stats`;
+          let statsUrl = `${BACKEND_URL}/players/${player.id}/stats`;
           if (startDate || endDate) {
             statsUrl += '?';
             if (startDate) {
