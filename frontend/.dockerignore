@@ -1,0 +1,25 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Build artifacts
+build/
+dist/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+
+# Git and version control
+.git/
+.gitignore
+
+# IDE and editor files
+.vscode/
+.idea/
+
+# Docker-related files
+Dockerfile
+docker-compose.yml

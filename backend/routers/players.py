@@ -1,18 +1,19 @@
 from fastapi import APIRouter, HTTPException, Form, File, UploadFile, Response
 from models import Player
 from crud import get_players, get_player, add_player, delete_player
-from pydantic import BaseModel
+from pydantic import ValidationError
 from typing import Optional
 from fastapi import Body
 from database import get_gridfs
 import bson
 from datetime import datetime
 from statistics import calculate_player_stats
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-class PlayerCreate(BaseModel):
-    name: str
 
 @router.get("/")
 async def list_players():
@@ -52,7 +53,12 @@ async def create_player(
     image: UploadFile = File(None)
 ):
     # Create player first
-    new_player = Player(name=name)
+    try:
+        new_player = Player(name=name)
+    except ValidationError as exc:
+        logger.error(f"Validation error creating player: {exc}")
+        raise HTTPException(status_code=422, detail=f"failed to create player with name {name} {str(exc)}")    
+    
     player = await add_player(new_player)
     
     if image:

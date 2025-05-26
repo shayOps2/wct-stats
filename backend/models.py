@@ -4,7 +4,7 @@ from datetime import datetime
 
 class Player(BaseModel):
     id: Optional[str] = None
-    name: str
+    name: str = Field(..., min_length=1, max_length=50, pattern=r"^[a-zA-Z]+( [a-zA-Z]+)*$")
     image_id: Optional[str] = None  # GridFS file ID
 
 class Round(BaseModel):

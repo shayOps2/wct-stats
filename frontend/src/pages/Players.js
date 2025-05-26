@@ -5,6 +5,7 @@ function Players() {
   const [players, setPlayers] = useState([]);
   const [name, setName] = useState("");
   const [image, setImage] = useState(null);
+  const [error, setError] = useState(""); // State to manage error messages
 
   const fetchPlayers = () => {
     fetch(`${BACKEND_URL}/players/`)
@@ -18,13 +19,29 @@ function Players() {
     const formData = new FormData();
     formData.append("name", name);
     if (image) formData.append("image", image);
-    await fetch(`${BACKEND_URL}/players/`, {
-      method: "POST",
-      body: formData,
-    });
-    setName("");
-    setImage(null);
-    fetchPlayers();
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/players/`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        alert(errorData.message || "Failed to add player. Please check the input.");
+        return;
+      }
+      
+      console.log("Response status:", response.status); // Log the response status for debugging
+      
+      setName("");
+      setImage(null);
+      setError(""); // Clear any previous error
+      fetchPlayers();
+    } catch (err) {
+      console.error("Error adding player:", err); // Log the error for debugging
+      alert(err.message || "An unexpected error occurred"); // Use alert for error message
+    }
   };
 
   const handleDelete = async id => {
@@ -35,6 +52,11 @@ function Players() {
   return (
     <div style={{ padding: 24 }}>
       <h2>Players</h2>
+      {error && ( // Conditionally render the error message
+        <div style={{ color: "red", marginBottom: 16 }}>
+          {error}
+        </div>
+      )}
       <form onSubmit={handleAddPlayer} style={{ marginBottom: 24 }}>
         <input
           type="text"

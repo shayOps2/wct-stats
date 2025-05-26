@@ -29,10 +29,6 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
-# Images/Uploads
-backend/images/
-!backend/images/.gitkeep
-
 # Misc
 *.log
 *.bak

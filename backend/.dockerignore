@@ -1,0 +1,27 @@
+# Python cache and virtual environments
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+
+# Environment and configuration files
+.env
+*.env
+
+# Git and version control
+.git/
+.gitignore
+
+# IDE and editor files
+.vscode/
+.idea/
+
+# Docker-related files
+Dockerfile
+docker-compose.yml
