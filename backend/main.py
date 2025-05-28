@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routers import players, matches, pins
+from routers import players, matches, pins, login
 from database import init_db, setup_database
 import logging
 from cors import add_cors_middleware  
@@ -7,27 +7,40 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from rate_limit import limiter
-
-app = FastAPI()
-
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-app.add_middleware(SlowAPIMiddleware)
+from crud import get_user_by_username, add_user
+from routers.login import get_password_hash
+from models import User, UserRole
+from contextlib import asynccontextmanager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-# Register startup event
-@app.on_event("startup")
-async def startup_db_client():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     logger.info("Initializing database...")
     await init_db()
     await setup_database()
     logger.info("Database initialization completed")
+    # Create default admin user if not exists
+    admin = await get_user_by_username("admin")
+    if not admin:
+        admin_user = User(
+            username="admin",
+            hashed_password=get_password_hash("admin"),
+            role=UserRole.admin,
+        )
+        await add_user(admin_user)
+        logger.info("Default admin user created")
+    yield  # Application runs here
 
+app = FastAPI(lifespan=lifespan)
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+app.include_router(login.router, prefix="/login", tags=["Login"]) 
 app.include_router(players.router, prefix="/players", tags=["Players"])
 app.include_router(matches.router, prefix="/matches", tags=["Matches"])
 app.include_router(pins.router)

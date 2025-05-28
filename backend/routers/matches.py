@@ -4,6 +4,7 @@ from crud import get_matches, get_match, add_match, delete_match, get_player, up
 from datetime import datetime
 from typing import List, Optional
 import logging
+from routers.login import get_current_user
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -79,8 +80,13 @@ async def create_match(
     team2_player_ids: List[str] = Body(None),
     player1_id: str = Body(None),
     player2_id: str = Body(None),
-    video_url: Optional[str] = Body(None)
+    video_url: Optional[str] = Body(None),
+    current_user: dict = Depends(get_current_user)
 ):
+    
+    if current_user["role"] != "Admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+
     # Validate match type
     if match_type not in ["team", "1v1"]:
         raise HTTPException(status_code=400, detail="Invalid match type")
@@ -157,8 +163,13 @@ async def add_round(
     tag_time: Optional[float] = Body(None),
     round_hour: Optional[int] = Body(None),
     round_minute: Optional[int] = Body(None),
-    round_second: Optional[int] = Body(None)
+    round_second: Optional[int] = Body(None),
+    current_user: dict = Depends(get_current_user)
 ):
+    
+    if current_user["role"] != "Admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    
     logger.info(f"Adding round to match {match_id}")
     logger.info(f"Request data: chaser={chaser_id}, evader={evader_id}, tag_made={tag_made}, tag_time={tag_time}")
     
@@ -390,7 +401,8 @@ async def add_round(
 async def remove_match(
     request: Request,
     match_id: str,
-    confirm: bool = Body(..., embed=True, description="Confirmation flag that must be true to delete the match")
+    confirm: bool = Body(..., embed=True, description="Confirmation flag that must be true to delete the match"),
+    current_user: dict = Depends(get_current_user)
 ):
     """Delete a match. Requires explicit confirmation to prevent accidental deletions.
     
@@ -404,6 +416,9 @@ async def remove_match(
     Raises:
         HTTPException: If match not found or confirmation not provided
     """
+    if current_user["role"] != "Admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+ 
     if not confirm:
         raise HTTPException(
             status_code=400,
@@ -432,8 +447,12 @@ async def remove_match(
 async def update_match(
     request: Request,
     match_id: str,
-    match: Match
+    match: Match,
+    current_user: dict = Depends(get_current_user)
 ):
+    if current_user["role"] != "Admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    
     # Verify match exists
     existing_match = await get_match(match_id)
     if not existing_match:
@@ -539,7 +558,14 @@ async def update_match(
     return result
 
 @router.delete("/{match_id}/rounds/last")
-async def delete_last_round(request: Request, match_id: str):
+async def delete_last_round(
+    request: Request,
+    match_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    if current_user["role"] != "Admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    
     """Delete the last round of a match if it's not completed or in sudden death."""
     match = await get_match(match_id)
     if not match:
@@ -590,8 +616,12 @@ async def update_round(
     round_second: Optional[int] = Body(None),
     tag_made: Optional[bool] = Body(None),
     tag_time: Optional[float] = Body(None),
-    video_url: Optional[str] = Body(None)
+    video_url: Optional[str] = Body(None),
+    current_user: dict = Depends(get_current_user)
 ):
+    if current_user["role"] != "Admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    
     logger.info(f"Updating round {round_index} for match {match_id}")
     match = await get_match(match_id)
     if not match:

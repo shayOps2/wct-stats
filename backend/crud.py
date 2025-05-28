@@ -1,11 +1,38 @@
 # CRUD logic for players, matches, pins
 from database import db
-from models import Player, Match, Round, Pin
+from models import Player, Match, Round, Pin, User
 from bson import ObjectId
 import bson
 from typing import List, Optional, Dict, Any
 import traceback
 from bson.errors import InvalidId
+
+def document_to_user(doc):
+    if not doc:
+        return None
+    return User(
+        id=str(doc["_id"]),
+        username=doc["username"],
+        hashed_password=doc["hashed_password"],
+        role=doc.get("role", "User"),
+        created_at=doc.get("created_at")
+    )
+
+def user_to_document(user: User):
+    doc = user.model_dump(exclude_unset=True)
+    if "id" in doc:
+        doc["_id"] = bson.ObjectId(doc.pop("id"))
+    return doc
+
+async def get_user_by_username(username: str):
+    doc = await db["users"].find_one({"username": username})
+    return document_to_user(doc)
+
+async def add_user(user: User):
+    doc = user_to_document(user)
+    result = await db["users"].insert_one(doc)
+    user.id = str(result.inserted_id)
+    return user
 
 def player_helper(player) -> dict:
     return {

@@ -1,9 +1,21 @@
 import React from "react";
-import { Card, Typography } from "antd";
+import { Card, Typography, Button } from "antd";
+import { useNavigate } from "react-router-dom";
 
 const { Title, Paragraph } = Typography;
 
-function Home() {
+function Home({ setUser }) {
+  const navigate = useNavigate();
+  const userStr = localStorage.getItem("user");
+  const user = userStr ? JSON.parse(userStr) : null;
+
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    setUser && setUser(null); // update App state if provided
+    window.location.reload();
+  };
+
   return (
     <div style={{ padding: 24 }}>
       <Card>
@@ -30,9 +42,29 @@ function Home() {
             Navigate through the dashboard tabs to explore different aspects of player and match data.
           </Paragraph>
         </Typography>
+        {user ? (
+          <div style={{ marginTop: 24, textAlign: "right" }}>
+            Hello <b>{user.username}</b>, you are a <b>{user.role}</b>
+            <Button
+              style={{ marginLeft: 16 }}
+              danger
+              onClick={handleLogout}
+            >
+              Logout
+            </Button>
+          </div>
+        ) : (
+          <Button
+            type="primary"
+            style={{ marginTop: 24 }}
+            onClick={() => navigate("/login")}
+          >
+            Login / Register
+          </Button>
+        )}
       </Card>
     </div>
   );
 }
 
-export default Home; 
+export default Home;

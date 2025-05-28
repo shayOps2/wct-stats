@@ -8,6 +8,10 @@ const Layout = ({ children }) => {
   const location = useLocation();
   const pathname = location.pathname;
 
+  // Get user from localStorage
+  const userStr = localStorage.getItem("user");
+  const user = userStr ? JSON.parse(userStr) : null;
+
   // Determine which menu item should be active
   const getSelectedKey = () => {
     if (pathname === '/') return '1';
@@ -45,12 +49,17 @@ const Layout = ({ children }) => {
           <Menu.Item key="4">
             <Link to="/dashboard/quadPins">Tag Map</Link>
           </Menu.Item>
-          <Menu.Item key="5">
-            <Link to="/players">Manage Players</Link>
-          </Menu.Item>
-          <Menu.Item key="6">
-            <Link to="/matches">Manage Matches</Link>
-          </Menu.Item>
+          {/* Admin-only tabs */}
+          {user && user.role === "Admin" && (
+            <>
+              <Menu.Item key="5">
+                <Link to="/players">Manage Players</Link>
+              </Menu.Item>
+              <Menu.Item key="6">
+                <Link to="/matches">Manage Matches</Link>
+              </Menu.Item>
+            </>
+          )}
         </Menu>
       </Header>
       <Content style={{ padding: '0 50px', marginTop: 64 }}>
@@ -65,4 +74,4 @@ const Layout = ({ children }) => {
   );
 };
 
-export default Layout; 
+export default Layout;

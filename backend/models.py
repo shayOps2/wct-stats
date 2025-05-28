@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal, Dict, Any
 from datetime import datetime
+from enum import Enum
 
 class Player(BaseModel):
     id: Optional[str] = None
@@ -46,3 +47,14 @@ class Pin(BaseModel):
     evader_id: str
     match_id: str
     round_index: int
+
+class UserRole(str, Enum):
+    admin = "Admin"
+    user = "User"
+
+class User(BaseModel):
+    id: Optional[str] = None
+    username: str = Field(..., min_length=3, max_length=32, pattern=r"^[a-zA-Z0-9_]+$")
+    hashed_password: str
+    role: UserRole = UserRole.user
+    created_at: Optional[datetime] = None
