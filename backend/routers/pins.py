@@ -1,10 +1,9 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from typing import List, Optional, Dict
 from pydantic import BaseModel
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import logging
-
 from crud import create_pin, get_pins_by_match_and_round, update_pin, delete_pin, get_pins, get_match
 from models import Pin
 
@@ -15,12 +14,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/pins",
     tags=["pins"],
-    responses={404: {"description": "Not found"}},
+    responses={404: {"description": "Not found"}}
 )
 
 @router.post("/", response_model=Pin)
 async def create_new_pin(
     pin_create: Pin,
+    request=Request
 ):
     created_pin = await create_pin(pin_data=pin_create)
     if not created_pin:
@@ -30,6 +30,7 @@ async def create_new_pin(
 # get pins with match and round details
 @router.get("/enriched", response_model=List[Dict])
 async def get_enriched_pins(
+    request=Request,
     start_date: Optional[datetime] = Query(None, description="Filter pins by match date start"),
     end_date: Optional[datetime] = Query(None, description="Filter pins by match date end"),
     player_id: Optional[str] = Query(None, description="Filter pins by player (chaser or evader)"),
@@ -103,6 +104,7 @@ async def get_enriched_pins(
 
 @router.get("/", response_model=List[Pin])
 async def read_pins(
+    request=Request,
     match_id: Optional[str] = Query(None, description="The ID of the match to fetch pins for"),
     round_index: Optional[int] = Query(None, description="The index of the round to fetch pins for (optional)"),
     start_date: Optional[datetime] = Query(None, description="Filter pins by match date start"),
@@ -220,7 +222,8 @@ class PinUpdateLocation(BaseModel):
 @router.put("/{pin_id}", response_model=Pin)
 async def update_existing_pin_location(
     pin_id: str,
-    pin_update: PinUpdateLocation
+    pin_update: PinUpdateLocation,
+    request=Request
 ):
     updated_pin = await update_pin(pin_id=pin_id, pin_location_data=pin_update.location)
     if not updated_pin:
@@ -229,7 +232,8 @@ async def update_existing_pin_location(
 
 @router.delete("/{pin_id}", status_code=204)
 async def remove_pin_by_id(
-    pin_id: str
+    pin_id: str,
+    request=Request
 ):
     success = await delete_pin(pin_id=pin_id)
     if not success:

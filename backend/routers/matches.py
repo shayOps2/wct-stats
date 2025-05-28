@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, HTTPException, Body, Depends, Request
 from models import Match, Round
 from crud import get_matches, get_match, add_match, delete_match, get_player, update_match as update_match_in_db
 from datetime import datetime
@@ -58,11 +58,11 @@ def calculate_sudden_death_winner(match, sd_round1, sd_round2):
         return "Draw", time1, time2
 
 @router.get("/")
-async def list_matches():
+async def list_matches(request: Request):
     return await get_matches()
 
 @router.get("/{match_id}")
-async def get_match_by_id(match_id: str):
+async def get_match_by_id(request: Request, match_id: str):
     match = await get_match(match_id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
@@ -70,6 +70,7 @@ async def get_match_by_id(match_id: str):
 
 @router.post("/")
 async def create_match(
+    request: Request,
     match_type: str = Body(...),
     date: datetime = Body(...),
     team1_name: str = Body(None),
@@ -148,6 +149,7 @@ async def create_match(
 
 @router.post("/{match_id}/rounds")
 async def add_round(
+    request: Request,
     match_id: str,
     chaser_id: str = Body(...),
     evader_id: str = Body(...),
@@ -386,6 +388,7 @@ async def add_round(
 
 @router.delete("/{match_id}")
 async def remove_match(
+    request: Request,
     match_id: str,
     confirm: bool = Body(..., embed=True, description="Confirmation flag that must be true to delete the match")
 ):
@@ -427,6 +430,7 @@ async def remove_match(
 
 @router.put("/{match_id}")
 async def update_match(
+    request: Request,
     match_id: str,
     match: Match
 ):
@@ -535,7 +539,7 @@ async def update_match(
     return result
 
 @router.delete("/{match_id}/rounds/last")
-async def delete_last_round(match_id: str):
+async def delete_last_round(request: Request, match_id: str):
     """Delete the last round of a match if it's not completed or in sudden death."""
     match = await get_match(match_id)
     if not match:
@@ -578,6 +582,7 @@ async def delete_last_round(match_id: str):
 
 @router.put("/{match_id}/rounds/{round_index}")
 async def update_round(
+    request: Request,
     match_id: str,
     round_index: int,
     round_hour: Optional[int] = Body(None),
@@ -625,6 +630,7 @@ async def update_round(
 
 @router.patch("/{match_id}", response_model=Match)
 async def update_match_date(
+    request: Request,
     match_id: str,
     date: Optional[datetime] = Body(None, embed=True),
     video_url: Optional[str] = Body(None, embed=True)

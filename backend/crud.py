@@ -5,6 +5,7 @@ from bson import ObjectId
 import bson
 from typing import List, Optional, Dict, Any
 import traceback
+from bson.errors import InvalidId
 
 def player_helper(player) -> dict:
     return {
@@ -45,42 +46,45 @@ async def get_players():
 
 async def get_player(player_id: str):
     try:
+        if not bson.ObjectId.is_valid(player_id):
+            print(f"Invalid player_id: {player_id}")
+            return None
         document = await db["players"].find_one({"_id": bson.ObjectId(player_id)})
         return document_to_player(document)
-    except:
+    except Exception as e:
+        print(f"Error retrieving player: {str(e)}")
         return None
 
 async def add_player(player: Player):
-    if player.id:
-        # Update existing player
-        try:
-            player_dict = player.model_dump(exclude_unset=True)
-            if "id" in player_dict:
-                player_dict["_id"] = bson.ObjectId(player_dict.pop("id"))
-            
+    try:
+        player_dict = player.model_dump(exclude_unset=True)
+        if player.id:
+            if not bson.ObjectId.is_valid(player.id):
+                print(f"Invalid player ID: {player.id}")
+                return None
+            player_dict["_id"] = bson.ObjectId(player_dict.pop("id"))
             await db["players"].update_one(
                 {"_id": player_dict["_id"]},
                 {"$set": {k: v for k, v in player_dict.items() if k != "_id"}}
             )
             return await get_player(str(player_dict["_id"]))
-        except Exception as e:
-            print(f"Error updating player: {str(e)}")
-            return None
-    else:
-        # Create new player
-        try:
-            player_dict = player.model_dump(exclude_unset=True, exclude={"id"})
+        else:
+            player_dict.pop("id", None)  # Ensure no invalid ID is passed
             result = await db["players"].insert_one(player_dict)
             return await get_player(str(result.inserted_id))
-        except Exception as e:
-            print(f"Error creating player: {str(e)}")
-            return None
+    except Exception as e:
+        print(f"Error adding/updating player: {str(e)}")
+        return None
 
 async def delete_player(player_id: str):
     try:
+        if not bson.ObjectId.is_valid(player_id):
+            print(f"Invalid player_id: {player_id}")
+            return False
         result = await db["players"].delete_one({"_id": bson.ObjectId(player_id)})
         return result.deleted_count > 0
-    except:
+    except Exception as e:
+        print(f"Error deleting player: {str(e)}")
         return False
 
 # Match CRUD operations
@@ -178,15 +182,11 @@ async def get_matches(query: Optional[Dict[str, Any]] = None):
 
 async def get_match(match_id: str):
     try:
-        document = await db["matches"].find_one({"_id": bson.ObjectId(match_id)})
-        if document:
-            return document_to_match(document)
-        else:
-            print(f"No match found with ID: {match_id}")
+        if not bson.ObjectId.is_valid(match_id):
+            print(f"Invalid match_id: {match_id}")
             return None
-    except bson.errors.InvalidId:
-        print(f"Invalid ObjectId format: {match_id}")
-        return None
+        document = await db["matches"].find_one({"_id": bson.ObjectId(match_id)})
+        return document_to_match(document) if document else None
     except Exception as e:
         print(f"Error retrieving match: {str(e)}")
         return None
@@ -243,16 +243,14 @@ async def update_match(match: Match) -> Optional[Match]:
 
 async def delete_match(match_id: str):
     try:
-        # First delete all associated pins
-        print(f"Deleting pins associated with match {match_id}")
-        delete_pins_result = await db["pins"].delete_many({"match_id": match_id})
-        print(f"Deleted {delete_pins_result.deleted_count} pins for match {match_id}")
-        
-        # Then delete the match
+        if not bson.ObjectId.is_valid(match_id):
+            print(f"Invalid match_id: {match_id}")
+            return False
+        await db["pins"].delete_many({"match_id": match_id})
         result = await db["matches"].delete_one({"_id": bson.ObjectId(match_id)})
         return result.deleted_count > 0
     except Exception as e:
-        print(f"Error deleting match and associated pins: {str(e)}")
+        print(f"Error deleting match: {str(e)}")
         return False
 
 # Pin CRUD Operations
@@ -276,33 +274,15 @@ def document_to_pin(doc: Dict[str, Any]) -> Optional[Pin]:
 
 async def create_pin(pin_data: Pin) -> Optional[Pin]:
     try:
-        # First check if a pin already exists for this match_id and round_index
-        existing_pin = None
-        query = {
-            "match_id": pin_data.match_id,
-            "round_index": pin_data.round_index
-        }
-        
-        existing_pins = await get_pins(query)
-        if existing_pins:
-            # If a pin exists, update it instead of creating a new one
-            existing_pin = existing_pins[0]
-            print(f"Found existing pin for match {pin_data.match_id}, round {pin_data.round_index}. Updating instead of creating.")
-            return await update_pin(existing_pin.id, pin_data.location)
-        
-        # If no pin exists, proceed with creation
-        pin_doc = pin_data.model_dump(exclude_unset=True, exclude={"id"}) # Exclude id for insertion
-        
-        # Ensure relevant IDs are stored as strings or can be converted if needed later
-        # For now, assuming they are already strings as per Pin model
-        # If they were ObjectIds from other collections, they would need conversion here or before.
-
+        pin_doc = pin_data.model_dump(exclude_unset=True, exclude={"id"})
+        if not bson.ObjectId.is_valid(pin_data.match_id):
+            print(f"Invalid match_id: {pin_data.match_id}")
+            return None
         result = await db["pins"].insert_one(pin_doc)
         created_pin_doc = await db["pins"].find_one({"_id": result.inserted_id})
         return document_to_pin(created_pin_doc)
     except Exception as e:
         print(f"Error creating pin: {str(e)}")
-        traceback.print_exc()  # Print the full traceback for debugging
         return None
 
 async def get_pins(query_filter: Dict[str, Any]) -> List[Pin]:
@@ -346,10 +326,13 @@ async def update_pin(pin_id: str, pin_location_data: Dict[str, Any]) -> Optional
 async def delete_pin(pin_id: str) -> bool:
     """Deletes a pin by its ID."""
     try:
-        delete_result = await db["pins"].delete_one({"_id": ObjectId(pin_id)})
-        return delete_result.deleted_count > 0
+        if not bson.ObjectId.is_valid(pin_id):
+            print(f"Invalid pin_id: {pin_id}")
+            return False
+        result = await db["pins"].delete_one({"_id": bson.ObjectId(pin_id)})
+        return result.deleted_count > 0
     except Exception as e:
-        print(f"Error deleting pin {pin_id}: {str(e)}")
+        print(f"Error deleting pin: {str(e)}")
         return False
 
 # End of CRUD operations

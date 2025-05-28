@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Form, File, UploadFile, Response
+from fastapi import APIRouter, HTTPException, Form, File, UploadFile, Response, Depends, Request
 from models import Player
 from crud import get_players, get_player, add_player, delete_player
 from pydantic import ValidationError
@@ -16,18 +16,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/")
-async def list_players():
+async def list_players(request: Request):
     return await get_players()
 
 @router.get("/{player_id}")
-async def get_player_by_id(player_id: str):
+async def get_player_by_id(request: Request,player_id: str):
     player = await get_player(player_id)
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
     return player
 
 @router.get("/{player_id}/image")
-async def get_player_image(player_id: str):
+async def get_player_image(request: Request, player_id: str):
     player = await get_player(player_id)
     if not player or not player.image_id:
         raise HTTPException(status_code=404, detail="Image not found")
@@ -49,6 +49,7 @@ async def get_player_image(player_id: str):
 
 @router.post("/")
 async def create_player(
+    request: Request,
     name: str = Form(...),
     image: UploadFile = File(None)
 ):
@@ -90,7 +91,7 @@ async def create_player(
     return player
 
 @router.delete("/{player_id}")
-async def remove_player(player_id: str):
+async def remove_player(request: Request, player_id: str):
     player = await get_player(player_id)
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
@@ -109,6 +110,7 @@ async def remove_player(player_id: str):
 
 @router.get("/{player_id}/stats")
 async def get_player_statistics(
+    request: Request,
     player_id: str,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
@@ -132,6 +134,7 @@ async def get_player_statistics(
 
 @router.get("/{player_id}/versus/{opponent_id}")
 async def get_versus_statistics(
+    request: Request,
     player_id: str,
     opponent_id: str,
     start_date: Optional[datetime] = None,
