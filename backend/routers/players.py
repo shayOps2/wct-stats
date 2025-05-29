@@ -10,6 +10,7 @@ from datetime import datetime
 from statistics import calculate_player_stats
 import logging
 from database import get_db
+from routers.login import get_current_user
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -64,8 +65,12 @@ async def create_player(
     request: Request,
     name: str = Form(...),
     image: UploadFile = File(None),
+    current_user: dict = Depends(get_current_user),
     db = Depends(get_db)
 ):
+    if current_user["role"] != "Admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+        
     # Create player first
     try:
         new_player = Player(name=name)
@@ -107,8 +112,12 @@ async def create_player(
 async def remove_player(
     request: Request,
     player_id: str,
+    current_user: dict = Depends(get_current_user),
     db = Depends(get_db)
 ):
+    if current_user["role"] != "Admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    
     player = await get_player(db, player_id)
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
