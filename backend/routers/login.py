@@ -8,6 +8,7 @@ from crud import get_user_by_username, add_user
 import jwt
 import os
 import re
+from database import get_db
 
 if os.environ.get("ENV", "development") == "development":
     from dotenv import load_dotenv
@@ -33,15 +34,18 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-async def authenticate_user(username: str, password: str):
-    user = await get_user_by_username(username)
+async def authenticate_user(username: str, password: str, db):
+    user = await get_user_by_username(username, db)
     if not user or not verify_password(password, user.hashed_password):
         return None
     return user
 
 @router.post("/token")
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = await authenticate_user(form_data.username, form_data.password)
+async def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db = Depends(get_db)
+):
+    user = await authenticate_user(form_data.username, form_data.password, db)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -57,17 +61,18 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 async def register_user(
     username: str = Body(...),
     password: str = Body(...),
-    role: UserRole = Body(UserRole.user)
+    role: UserRole = Body(UserRole.user),
+    db = Depends(get_db)
 ):
     # Password strength check
     if len(password) < 8 or not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters and contain both letters and numbers.")
-    existing = await get_user_by_username(username)
+    existing = await get_user_by_username(username, db)
     if existing:
         raise HTTPException(status_code=400, detail="Username already registered")
     hashed_password = get_password_hash(password)
     user = User(username=username, hashed_password=hashed_password, role=role, created_at=datetime.now())
-    await add_user(user)
+    await add_user(user, db)
     return {"msg": "User created", "username": username}
 
 # Dependency to get current user from token

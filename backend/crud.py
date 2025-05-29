@@ -1,5 +1,4 @@
 # CRUD logic for players, matches, pins
-from database import db
 from models import Player, Match, Round, Pin, User
 from bson import ObjectId
 import bson
@@ -24,11 +23,11 @@ def user_to_document(user: User):
         doc["_id"] = bson.ObjectId(doc.pop("id"))
     return doc
 
-async def get_user_by_username(username: str):
+async def get_user_by_username(username: str, db):
     doc = await db["users"].find_one({"username": username})
     return document_to_user(doc)
 
-async def add_user(user: User):
+async def add_user(user: User, db):
     doc = user_to_document(user)
     result = await db["users"].insert_one(doc)
     user.id = str(result.inserted_id)
@@ -55,7 +54,7 @@ def document_to_player(doc):
             return None
     return None
 
-def player_to_document(player: Player):
+def player_to_document(player: Player, db):
     if not player:
         return None
     return {
@@ -64,14 +63,14 @@ def player_to_document(player: Player):
         "image_id": player.image_id
     }
 
-async def get_players():
+async def get_players(db):
     players = []
     cursor = db["players"].find()
     async for document in cursor:
         players.append(document_to_player(document))
     return players
 
-async def get_player(player_id: str):
+async def get_player(player_id: str, db):
     try:
         if not bson.ObjectId.is_valid(player_id):
             print(f"Invalid player_id: {player_id}")
@@ -82,7 +81,7 @@ async def get_player(player_id: str):
         print(f"Error retrieving player: {str(e)}")
         return None
 
-async def add_player(player: Player):
+async def add_player(player: Player, db):
     try:
         player_dict = player.model_dump(exclude_unset=True)
         if player.id:
@@ -103,7 +102,7 @@ async def add_player(player: Player):
         print(f"Error adding/updating player: {str(e)}")
         return None
 
-async def delete_player(player_id: str):
+async def delete_player(player_id: str, db):
     try:
         if not bson.ObjectId.is_valid(player_id):
             print(f"Invalid player_id: {player_id}")
@@ -198,7 +197,7 @@ def match_to_document(match: Match):
     
     return doc
 
-async def get_matches(query: Optional[Dict[str, Any]] = None):
+async def get_matches(db, query: Optional[Dict[str, Any]] = None):
     matches = []
     cursor = db["matches"].find(query or {})
     async for document in cursor:
@@ -207,7 +206,7 @@ async def get_matches(query: Optional[Dict[str, Any]] = None):
             matches.append(match)
     return matches
 
-async def get_match(match_id: str):
+async def get_match(match_id: str, db):
     try:
         if not bson.ObjectId.is_valid(match_id):
             print(f"Invalid match_id: {match_id}")
@@ -218,7 +217,7 @@ async def get_match(match_id: str):
         print(f"Error retrieving match: {str(e)}")
         return None
 
-async def add_match(match: Match):
+async def add_match(match: Match, db):
     try:
         if match.id:
             # Update existing match
@@ -238,7 +237,7 @@ async def add_match(match: Match):
         print(f"Error saving match: {str(e)}")
         return None
 
-async def update_match(match: Match) -> Optional[Match]:
+async def update_match(match: Match, db) -> Optional[Match]:
     """
     Update an existing match in the database.
     
@@ -268,7 +267,7 @@ async def update_match(match: Match) -> Optional[Match]:
         print(f"Error updating match: {str(e)}")
         return None
 
-async def delete_match(match_id: str):
+async def delete_match(match_id: str, db):
     try:
         if not bson.ObjectId.is_valid(match_id):
             print(f"Invalid match_id: {match_id}")
@@ -299,7 +298,7 @@ def document_to_pin(doc: Dict[str, Any]) -> Optional[Pin]:
         print(f"Error converting document to Pin: {str(e)}")
         return None
 
-async def create_pin(pin_data: Pin) -> Optional[Pin]:
+async def create_pin(pin_data: Pin, db) -> Optional[Pin]:
     try:
         pin_doc = pin_data.model_dump(exclude_unset=True, exclude={"id"})
         if not bson.ObjectId.is_valid(pin_data.match_id):
@@ -312,7 +311,7 @@ async def create_pin(pin_data: Pin) -> Optional[Pin]:
         print(f"Error creating pin: {str(e)}")
         return None
 
-async def get_pins(query_filter: Dict[str, Any]) -> List[Pin]:
+async def get_pins(db, query_filter: Dict[str, Any]) -> List[Pin]:
     """Get pins based on a filter dictionary."""
     pins = []
     try:
@@ -325,13 +324,13 @@ async def get_pins(query_filter: Dict[str, Any]) -> List[Pin]:
         print(f"Error fetching pins: {str(e)}")
     return pins
 
-async def get_pins_by_match_and_round(match_id: str, round_index: Optional[int] = None) -> List[Pin]:
+async def get_pins_by_match_and_round(db, match_id: str, round_index: Optional[int] = None) -> List[Pin]:
     query: Dict[str, Any] = {"match_id": match_id}
     if round_index is not None:
         query["round_index"] = round_index
     return await get_pins(query)
 
-async def update_pin(pin_id: str, pin_location_data: Dict[str, Any]) -> Optional[Pin]:
+async def update_pin(db, pin_id: str, pin_location_data: Dict[str, Any]) -> Optional[Pin]:
     """Updates only the location of an existing pin."""
     try:
         if not await db["pins"].find_one({"_id": ObjectId(pin_id)}):
@@ -350,7 +349,7 @@ async def update_pin(pin_id: str, pin_location_data: Dict[str, Any]) -> Optional
         print(f"Error updating pin {pin_id}: {str(e)}")
         return None
 
-async def delete_pin(pin_id: str) -> bool:
+async def delete_pin(db, pin_id: str) -> bool:
     """Deletes a pin by its ID."""
     try:
         if not bson.ObjectId.is_valid(pin_id):

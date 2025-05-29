@@ -10,18 +10,25 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 # MongoDB connection URL
-MONGODB_URL = "mongodb://localhost:27017"
-DATABASE_NAME = "wct_stats"
+MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+DATABASE_NAME = os.getenv("DATABASE_NAME", "wct_stats")
 
 # Create Motor client
-client = AsyncIOMotorClient(os.getenv("MONGODB_URL", "mongodb://localhost:27017"))
-db = client.wct_stats
+async def get_db():
+    client = AsyncIOMotorClient(MONGODB_URL)
+    db = client[DATABASE_NAME]
+    try:
+        yield db
+    finally:
+        # Ensure the client is closed properly
+        await client.close()
+
 
 # Create GridFS bucket
-async def get_gridfs():
+async def get_gridfs(db):
     return AsyncIOMotorGridFSBucket(db)
 
-async def init_db():
+async def init_db(db):
     """Initialize database with required indexes"""
     
     # Matches collection indexes
@@ -52,7 +59,7 @@ async def init_db():
     await db.players.create_index("name", unique=True)
 
 # Setup function to ensure indexes are created
-async def setup_database():
+async def setup_database(db):
     try:
         # Create a unique index on pins collection to prevent duplicates on match_id + round_index
         logger.info("Creating unique index on pins collection...")
@@ -64,5 +71,3 @@ async def setup_database():
     except Exception as e:
         logger.error(f"Error setting up database indexes: {str(e)}")
 
-# We'll call setup_database explicitly in main.py instead of here
-# This ensures proper initialization order at application startup

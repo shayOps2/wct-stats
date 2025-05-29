@@ -11,28 +11,38 @@ from crud import get_user_by_username, add_user
 from routers.login import get_password_hash
 from models import User, UserRole
 from contextlib import asynccontextmanager
+from motor.motor_asyncio import AsyncIOMotorClient  # <-- Add this import
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+DATABASE_NAME = os.getenv("DATABASE_NAME", "wct_stats")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Initializing database...")
-    await init_db()
-    await setup_database()
-    logger.info("Database initialization completed")
-    # Create default admin user if not exists
-    admin = await get_user_by_username("admin")
-    if not admin:
-        admin_user = User(
-            username="admin",
-            hashed_password=get_password_hash("admin"),
-            role=UserRole.admin,
-        )
-        await add_user(admin_user)
-        logger.info("Default admin user created")
-    yield  # Application runs here
+    client = AsyncIOMotorClient(MONGODB_URL)
+    db = client[DATABASE_NAME]
+    try:
+        await init_db(db)
+        await setup_database(db)
+        logger.info("Database initialization completed")
+        # Create default admin user if not exists
+        admin = await get_user_by_username("admin", db)
+        if not admin:
+            admin_user = User(
+                username="admin",
+                hashed_password=get_password_hash("admin"),
+                role=UserRole.admin,
+            )
+            await add_user(admin_user, db)
+            logger.info("Default admin user created")
+        yield  # Application runs here
+    finally:
+        client.close()
 
 app = FastAPI(lifespan=lifespan)
 
