@@ -31,14 +31,14 @@ async def lifespan(app: FastAPI):
         await setup_database(db)
         logger.info("Database initialization completed")
         # Create default admin user if not exists
-        admin = await get_user_by_username("admin", db)
+        admin = await get_user_by_username(db, "admin")
         if not admin:
             admin_user = User(
                 username="admin",
                 hashed_password=get_password_hash("admin"),
                 role=UserRole.admin,
             )
-            await add_user(admin_user, db)
+            await add_user(db, admin_user)
             logger.info("Default admin user created")
         yield  # Application runs here
     finally:

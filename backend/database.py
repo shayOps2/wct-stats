@@ -21,7 +21,7 @@ async def get_db():
         yield db
     finally:
         # Ensure the client is closed properly
-        await client.close()
+        client.close()
 
 
 # Create GridFS bucket

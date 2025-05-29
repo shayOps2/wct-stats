@@ -79,6 +79,7 @@ class PlayerStats:
         }
 
 async def calculate_player_stats(
+    db,
     player_id: str,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
@@ -161,7 +162,7 @@ async def calculate_player_stats(
             query["match_type"] = match_type
     
     # Get matches with the optimized query
-    matches = await get_matches(query)
+    matches = await get_matches(db, query)
     
     stats = PlayerStats()
     

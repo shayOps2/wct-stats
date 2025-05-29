@@ -23,11 +23,11 @@ def user_to_document(user: User):
         doc["_id"] = bson.ObjectId(doc.pop("id"))
     return doc
 
-async def get_user_by_username(username: str, db):
+async def get_user_by_username(db, username: str):
     doc = await db["users"].find_one({"username": username})
     return document_to_user(doc)
 
-async def add_user(user: User, db):
+async def add_user(db, user: User):
     doc = user_to_document(user)
     result = await db["users"].insert_one(doc)
     user.id = str(result.inserted_id)
@@ -54,7 +54,7 @@ def document_to_player(doc):
             return None
     return None
 
-def player_to_document(player: Player, db):
+def player_to_document(player: Player):
     if not player:
         return None
     return {
@@ -70,7 +70,7 @@ async def get_players(db):
         players.append(document_to_player(document))
     return players
 
-async def get_player(player_id: str, db):
+async def get_player(db, player_id: str):
     try:
         if not bson.ObjectId.is_valid(player_id):
             print(f"Invalid player_id: {player_id}")
@@ -81,7 +81,7 @@ async def get_player(player_id: str, db):
         print(f"Error retrieving player: {str(e)}")
         return None
 
-async def add_player(player: Player, db):
+async def add_player(db, player: Player):
     try:
         player_dict = player.model_dump(exclude_unset=True)
         if player.id:
@@ -93,16 +93,16 @@ async def add_player(player: Player, db):
                 {"_id": player_dict["_id"]},
                 {"$set": {k: v for k, v in player_dict.items() if k != "_id"}}
             )
-            return await get_player(str(player_dict["_id"]))
+            return await get_player(db, str(player_dict["_id"]))
         else:
             player_dict.pop("id", None)  # Ensure no invalid ID is passed
             result = await db["players"].insert_one(player_dict)
-            return await get_player(str(result.inserted_id))
+            return await get_player(db, str(result.inserted_id))
     except Exception as e:
         print(f"Error adding/updating player: {str(e)}")
         return None
 
-async def delete_player(player_id: str, db):
+async def delete_player(db, player_id: str):
     try:
         if not bson.ObjectId.is_valid(player_id):
             print(f"Invalid player_id: {player_id}")
@@ -206,7 +206,7 @@ async def get_matches(db, query: Optional[Dict[str, Any]] = None):
             matches.append(match)
     return matches
 
-async def get_match(match_id: str, db):
+async def get_match(db, match_id: str):
     try:
         if not bson.ObjectId.is_valid(match_id):
             print(f"Invalid match_id: {match_id}")
@@ -217,7 +217,7 @@ async def get_match(match_id: str, db):
         print(f"Error retrieving match: {str(e)}")
         return None
 
-async def add_match(match: Match, db):
+async def add_match(db, match: Match):
     try:
         if match.id:
             # Update existing match
@@ -237,7 +237,7 @@ async def add_match(match: Match, db):
         print(f"Error saving match: {str(e)}")
         return None
 
-async def update_match(match: Match, db) -> Optional[Match]:
+async def update_match(db, match: Match) -> Optional[Match]:
     """
     Update an existing match in the database.
     
@@ -262,7 +262,7 @@ async def update_match(match: Match, db) -> Optional[Match]:
             print(f"No match found with ID {match.id} to update")
             return None
             
-        return await get_match(match.id)
+        return await get_match(db, match.id)
     except Exception as e:
         print(f"Error updating match: {str(e)}")
         return None
@@ -298,7 +298,7 @@ def document_to_pin(doc: Dict[str, Any]) -> Optional[Pin]:
         print(f"Error converting document to Pin: {str(e)}")
         return None
 
-async def create_pin(pin_data: Pin, db) -> Optional[Pin]:
+async def create_pin(db, pin_data: Pin) -> Optional[Pin]:
     try:
         pin_doc = pin_data.model_dump(exclude_unset=True, exclude={"id"})
         if not bson.ObjectId.is_valid(pin_data.match_id):
@@ -328,7 +328,7 @@ async def get_pins_by_match_and_round(db, match_id: str, round_index: Optional[i
     query: Dict[str, Any] = {"match_id": match_id}
     if round_index is not None:
         query["round_index"] = round_index
-    return await get_pins(query)
+    return await get_pins(db, query)
 
 async def update_pin(db, pin_id: str, pin_location_data: Dict[str, Any]) -> Optional[Pin]:
     """Updates only the location of an existing pin."""

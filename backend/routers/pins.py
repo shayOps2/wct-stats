@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 import logging
 from crud import create_pin, get_pins_by_match_and_round, update_pin, delete_pin, get_pins, get_match
 from models import Pin
+from database import get_db
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -20,9 +21,10 @@ router = APIRouter(
 @router.post("/", response_model=Pin)
 async def create_new_pin(
     pin_create: Pin,
-    request=Request
+    request=Request,
+    db = Depends(get_db)
 ):
-    created_pin = await create_pin(pin_data=pin_create)
+    created_pin = await create_pin(db, pin_data=pin_create)
     if not created_pin:
         raise HTTPException(status_code=400, detail="Error creating pin")
     return created_pin
@@ -36,7 +38,8 @@ async def get_enriched_pins(
     player_id: Optional[str] = Query(None, description="Filter pins by player (chaser or evader)"),
     opponent_id: Optional[str] = Query(None, description="Filter pins by opponent player"),
     role: Optional[str] = Query(None, description="Filter pins by role ('chaser' or 'evader')"),
-    match_type: Optional[str] = Query(None, description="Filter pins by match type")
+    match_type: Optional[str] = Query(None, description="Filter pins by match type"),
+    db = Depends(get_db)
 ) -> List[Dict]:
     """
     Fetch pins enriched with match and round details.
@@ -54,7 +57,7 @@ async def get_enriched_pins(
             filter_query["$or"] = [{"chaser_id": player_id}, {"evader_id": player_id}]
 
     # Fetch pins from the database
-    pins = await get_pins(filter_query)
+    pins = await get_pins(db, filter_query)
     enriched_pins = []
 
     # Ensure input dates are timezone-aware
@@ -64,7 +67,7 @@ async def get_enriched_pins(
         end_date = end_date.replace(tzinfo=timezone.utc)
 
     for pin in pins:
-        match = await get_match(pin.match_id)
+        match = await get_match(db, pin.match_id)
         if not match:
             continue
 
@@ -111,13 +114,14 @@ async def read_pins(
     end_date: Optional[datetime] = Query(None, description="Filter pins by match date end"),
     player_id: Optional[str] = Query(None, description="Filter pins by player (chaser or evader)"),
     match_type: Optional[str] = Query(None, description="Filter pins by match type"),
-    include_match_data: bool = Query(False, description="Include match data with pins")
+    include_match_data: bool = Query(False, description="Include match data with pins"),
+    db = Depends(get_db)
 ) -> List[Pin]:
     logger.info(f"Fetching pins with filters: match_id={match_id}, round_index={round_index}, player_id={player_id}, match_type={match_type}")
     
     # Standard query for a specific match
     if match_id and not (start_date or end_date or player_id or match_type):
-        pins = await get_pins_by_match_and_round(match_id=match_id, round_index=round_index)
+        pins = await get_pins_by_match_and_round(db, match_id=match_id, round_index=round_index)
         logger.info(f"Retrieved {len(pins)} pins for match {match_id}")
         for pin in pins:
             logger.info(f"Pin data: id={pin.id}, location={pin.location}, match_id={pin.match_id}")
@@ -135,7 +139,7 @@ async def read_pins(
         filter_dict["$or"] = [{"chaser_id": player_id}, {"evader_id": player_id}]
     
     # Get pins based on direct filters
-    pins = await get_pins(filter_dict)
+    pins = await get_pins(db, filter_dict)
     logger.info(f"Retrieved {len(pins)} pins with filter: {filter_dict}")
     
     # Further filtering based on match properties
@@ -150,7 +154,7 @@ async def read_pins(
         
         # For each pin, check if its match meets the filter criteria
         for pin in pins:
-            match = await get_match(pin.match_id)
+            match = await get_match(db, pin.match_id)
             logger.info(f"Processing pin {pin.id} for match {pin.match_id}")
             
             # Skip if match not found
@@ -198,7 +202,7 @@ async def read_pins(
     if include_match_data:
         pins_with_details = []
         for pin in pins:
-            match = await get_match(pin.match_id)
+            match = await get_match(db, pin.match_id)
             if match:
                 round_data = match.rounds[pin.round_index]
                 pin_dict = pin.model_dump()
@@ -223,9 +227,10 @@ class PinUpdateLocation(BaseModel):
 async def update_existing_pin_location(
     pin_id: str,
     pin_update: PinUpdateLocation,
-    request=Request
+    request=Request,
+    db = Depends(get_db)
 ):
-    updated_pin = await update_pin(pin_id=pin_id, pin_location_data=pin_update.location)
+    updated_pin = await update_pin(db, pin_id=pin_id, pin_location_data=pin_update.location)
     if not updated_pin:
         raise HTTPException(status_code=404, detail=f"Pin {pin_id} not found or update failed")
     return updated_pin
@@ -233,9 +238,10 @@ async def update_existing_pin_location(
 @router.delete("/{pin_id}", status_code=204)
 async def remove_pin_by_id(
     pin_id: str,
-    request=Request
+    request=Request,
+    db = Depends(get_db)
 ):
-    success = await delete_pin(pin_id=pin_id)
+    success = await delete_pin(db, pin_id=pin_id)
     if not success:
         raise HTTPException(status_code=404, detail=f"Pin {pin_id} not found or delete failed")
     return 

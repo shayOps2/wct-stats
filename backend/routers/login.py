@@ -35,7 +35,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 async def authenticate_user(username: str, password: str, db):
-    user = await get_user_by_username(username, db)
+    user = await get_user_by_username(db, username)
     if not user or not verify_password(password, user.hashed_password):
         return None
     return user
@@ -67,12 +67,12 @@ async def register_user(
     # Password strength check
     if len(password) < 8 or not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters and contain both letters and numbers.")
-    existing = await get_user_by_username(username, db)
+    existing = await get_user_by_username(db, username)
     if existing:
         raise HTTPException(status_code=400, detail="Username already registered")
     hashed_password = get_password_hash(password)
     user = User(username=username, hashed_password=hashed_password, role=role, created_at=datetime.now())
-    await add_user(user, db)
+    await add_user(db, user)
     return {"msg": "User created", "username": username}
 
 # Dependency to get current user from token

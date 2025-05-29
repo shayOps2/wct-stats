@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import List, Optional
 import logging
 from routers.login import get_current_user
+from database import get_db
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -59,12 +60,19 @@ def calculate_sudden_death_winner(match, sd_round1, sd_round2):
         return "Draw", time1, time2
 
 @router.get("/")
-async def list_matches(request: Request):
-    return await get_matches()
+async def list_matches(
+    request: Request,
+    db = Depends(get_db)
+):
+    return await get_matches(db)
 
 @router.get("/{match_id}")
-async def get_match_by_id(request: Request, match_id: str):
-    match = await get_match(match_id)
+async def get_match_by_id(
+    request: Request,
+    match_id: str,
+    db = Depends(get_db)
+):
+    match = await get_match(db, match_id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     return match
@@ -81,7 +89,8 @@ async def create_match(
     player1_id: str = Body(None),
     player2_id: str = Body(None),
     video_url: Optional[str] = Body(None),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    db = Depends(get_db)
 ):
     
     if current_user["role"] != "Admin":
@@ -108,12 +117,12 @@ async def create_match(
         team1_players = []
         team2_players = []
         for player_id in team1_player_ids:
-            player = await get_player(player_id)
+            player = await get_player(db, player_id)
             if not player:
                 raise HTTPException(status_code=404, detail=f"Player {player_id} not found")
             team1_players.append(player)
         for player_id in team2_player_ids:
-            player = await get_player(player_id)
+            player = await get_player(db, player_id)
             if not player:
                 raise HTTPException(status_code=404, detail=f"Player {player_id} not found")
             team2_players.append(player)
@@ -135,8 +144,8 @@ async def create_match(
             raise HTTPException(status_code=400, detail="Cannot select the same player for both sides in 1v1 match")
         
         # Get player objects
-        player1 = await get_player(player1_id)
-        player2 = await get_player(player2_id)
+        player1 = await get_player(db, player1_id)
+        player2 = await get_player(db, player2_id)
         if not player1 or not player2:
             raise HTTPException(status_code=404, detail="Player not found")
         
@@ -148,7 +157,7 @@ async def create_match(
             video_url=video_url
         )
     
-    result = await add_match(match)
+    result = await add_match(db, match)
     if not result:
         raise HTTPException(status_code=500, detail="Failed to create match")
     return result
@@ -164,7 +173,8 @@ async def add_round(
     round_hour: Optional[int] = Body(None),
     round_minute: Optional[int] = Body(None),
     round_second: Optional[int] = Body(None),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    db = Depends(get_db)
 ):
     
     if current_user["role"] != "Admin":
@@ -173,7 +183,7 @@ async def add_round(
     logger.info(f"Adding round to match {match_id}")
     logger.info(f"Request data: chaser={chaser_id}, evader={evader_id}, tag_made={tag_made}, tag_time={tag_time}")
     
-    match = await get_match(match_id)
+    match = await get_match(db, match_id)
     if not match:
         logger.error(f"Match not found: {match_id}")
         raise HTTPException(status_code=404, detail="Match not found")
@@ -181,8 +191,8 @@ async def add_round(
     logger.info(f"Found match: {match.model_dump()}")
     
     # Get player objects
-    chaser = await get_player(chaser_id)
-    evader = await get_player(evader_id)
+    chaser = await get_player(db, chaser_id)
+    evader = await get_player(db, evader_id)
     if not chaser or not evader:
         logger.error(f"Player not found: chaser={chaser_id}, evader={evader_id}")
         raise HTTPException(status_code=404, detail="Player not found")
@@ -390,7 +400,7 @@ async def add_round(
             match.is_completed = True
     
     # Update match in database
-    result = await add_match(match)
+    result = await add_match(db, match)
     if not result:
         raise HTTPException(status_code=500, detail="Failed to update match")
     
@@ -402,7 +412,8 @@ async def remove_match(
     request: Request,
     match_id: str,
     confirm: bool = Body(..., embed=True, description="Confirmation flag that must be true to delete the match"),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    db = Depends(get_db)
 ):
     """Delete a match. Requires explicit confirmation to prevent accidental deletions.
     
@@ -426,7 +437,7 @@ async def remove_match(
         )
     
     # Get match first to provide more context in the error message
-    match = await get_match(match_id)
+    match = await get_match(db, match_id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     
@@ -434,7 +445,7 @@ async def remove_match(
     if len(match.rounds) > 0:
         logger.warning(f"Deleting match {match_id} with {len(match.rounds)} rounds")
     
-    success = await delete_match(match_id)
+    success = await delete_match(match_id, db)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete match")
     
@@ -448,13 +459,14 @@ async def update_match(
     request: Request,
     match_id: str,
     match: Match,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    db = Depends(get_db)
 ):
     if current_user["role"] != "Admin":
         raise HTTPException(status_code=403, detail="Admin privileges required")
     
     # Verify match exists
-    existing_match = await get_match(match_id)
+    existing_match = await get_match(db, match_id)
     if not existing_match:
         raise HTTPException(status_code=404, detail="Match not found")
     
@@ -552,7 +564,7 @@ async def update_match(
             match.is_completed = True
     
     # Update match in database
-    result = await add_match(match)
+    result = await add_match(db, match)
     if not result:
         raise HTTPException(status_code=500, detail="Failed to update match")
     return result
@@ -561,13 +573,14 @@ async def update_match(
 async def delete_last_round(
     request: Request,
     match_id: str,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    db = Depends(get_db)
 ):
     if current_user["role"] != "Admin":
         raise HTTPException(status_code=403, detail="Admin privileges required")
     
     """Delete the last round of a match if it's not completed or in sudden death."""
-    match = await get_match(match_id)
+    match = await get_match(db, match_id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     
@@ -600,7 +613,7 @@ async def delete_last_round(
                 match.team2_score -= 1
     
     # Update match in database
-    result = await add_match(match)
+    result = await add_match(db, match)
     if not result:
         raise HTTPException(status_code=500, detail="Failed to update match")
     
@@ -617,13 +630,14 @@ async def update_round(
     tag_made: Optional[bool] = Body(None),
     tag_time: Optional[float] = Body(None),
     video_url: Optional[str] = Body(None),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    db = Depends(get_db)
 ):
     if current_user["role"] != "Admin":
         raise HTTPException(status_code=403, detail="Admin privileges required")
     
     logger.info(f"Updating round {round_index} for match {match_id}")
-    match = await get_match(match_id)
+    match = await get_match(db, match_id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     
@@ -652,7 +666,7 @@ async def update_round(
             round_to_update.video_url = None
 
     # Update match in database
-    result = await add_match(match)
+    result = await add_match(db, match)
     if not result:
         raise HTTPException(status_code=500, detail="Failed to update match")
     
@@ -663,11 +677,12 @@ async def update_match_date(
     request: Request,
     match_id: str,
     date: Optional[datetime] = Body(None, embed=True),
-    video_url: Optional[str] = Body(None, embed=True)
+    video_url: Optional[str] = Body(None, embed=True),
+    db = Depends(get_db)
 ):
     """Update a match's date."""
     # First get the existing match
-    match = await get_match(match_id)
+    match = await get_match(db, match_id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     
@@ -684,7 +699,7 @@ async def update_match_date(
         logger.info(f"Updated video URL for match {match_id}: {video_url}")
     
     # Save the updated match
-    updated_match = await update_match_in_db(match)
+    updated_match = await update_match_in_db(db, match)
     if not updated_match:
         raise HTTPException(status_code=400, detail="Failed to update match")
     
