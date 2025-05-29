@@ -117,3 +117,27 @@ def test_delete_match(client, auth_headers):
     )
     assert response.status_code == 200
     assert response.json()["status"] == "deleted"
+
+def test_create_match_non_admin_forbidden(client, mock_players):
+    # Register a normal user
+    user = {"username": "normal_user", "password": "Userpass123", "role": UserRole.user}
+    client.post("/login/register", json=user)
+    # Get token for normal user
+    response = client.post(
+        "/login/token",
+        data={"username": user["username"], "password": user["password"]},
+        headers={"Content-Type": "application/x-www-form-urlencoded"}
+    )
+    token = response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    data = {
+        "match_type": "1v1",
+        "date": datetime.now().isoformat(),
+        "player1_id": mock_players[0],
+        "player2_id": mock_players[1],
+        "video_url": "http://example.com/video"
+    }
+    response = client.post("/matches/", json=data, headers=headers)
+    assert response.status_code == 403
+    assert "Admin privileges required" in response.json().get("detail", "")    
