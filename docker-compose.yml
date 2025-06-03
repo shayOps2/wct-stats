@@ -15,13 +15,8 @@ services:
       - "27017:27017"
 
   mongo-restore:
-    image: mongo:6.0
-    depends_on:
-      mongo:
-        condition: service_healthy
-    volumes:
-      - ./db-backup:/db-backup
-    entrypoint: ["mongorestore", "--host=mongo", "--dir=/db-backup/dump", "--drop"]
+    build: 
+      dockerfile: ./Dockerfile.mongo-restore
     restart: "on-failure"
     networks:
       - app-network

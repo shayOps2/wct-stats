@@ -1,0 +1,3 @@
+FROM mongo:6.0
+COPY ./db-backup/dump /dump
+CMD ["mongorestore", "--host=mongo", "--dir=/dump", "--drop"]
