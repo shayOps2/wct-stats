@@ -46,16 +46,15 @@ async def get_player_image(
         raise HTTPException(status_code=404, detail="Image not found")
     
     try:
-        # Get GridFS bucket
         gfs = await get_gridfs(db)
-        
-        # Get file metadata
         file_data = await gfs.open_download_stream(bson.ObjectId(player.image_id))
         contents = await file_data.read()
-        
-        # Get content type from metadata if available
-        content_type = getattr(file_data, "content_type", "image/jpeg")
-        
+        # Use metadata for content type to avoid deprecation warning
+        content_type = None
+        if hasattr(file_data, "metadata") and file_data.metadata:
+            content_type = file_data.metadata.get("contentType")
+        if not content_type:
+            content_type = "image/jpeg"
         return Response(content=contents, media_type=content_type)
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Error retrieving image: {str(e)}")
