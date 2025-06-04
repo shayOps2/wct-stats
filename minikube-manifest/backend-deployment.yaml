@@ -47,7 +47,7 @@ spec:
               value: /run/secrets/backend-password
             - name: MONGODB_URL
               value: mongodb://mongo:27017
-          image: wct-stats-backend
+          image: wct-stats-backend:minikube
           imagePullPolicy: Never
           name: backend
           ports:

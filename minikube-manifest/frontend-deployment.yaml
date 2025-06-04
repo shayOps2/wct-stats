@@ -21,7 +21,7 @@ spec:
         io.kompose.service: frontend
     spec:
       containers:
-        - image: wct-stats-frontend
+        - image: wct-stats-frontend:minikube
           imagePullPolicy: Never
           name: frontend
           ports:
