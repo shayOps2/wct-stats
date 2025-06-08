@@ -1,0 +1,157 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "chart.fullname" . }}-backend
+  labels:
+    io.kompose.service: backend
+  {{- include "chart.labels" . | nindent 4 }}
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.34.0 (cbf2835db)
+spec:
+  replicas: {{ .Values.backend.replicas }}
+  strategy:
+    type: {{ .Values.backend.strategy.type | quote }}
+  selector:
+    matchLabels:
+      io.kompose.service: backend
+    {{- include "chart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        io.kompose.service: backend
+      {{- include "chart.selectorLabels" . | nindent 8 }}
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.34.0 (cbf2835db)
+    spec:
+      containers:
+      - args: {{- toYaml .Values.backend.backend.args | nindent 8 }}
+        command:
+        - /bin/sh
+        - -c
+        env:
+        - name: ENV
+          value: {{ quote .Values.backend.backend.env.env }}
+        - name: JWT_SECRET_KEY_FILE
+          value: {{ quote .Values.backend.backend.env.jwtSecretKeyFile }}
+        - name: MONGODB_URL
+          value: {{ quote .Values.backend.backend.env.mongodbUrl }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.backend.backend.image.repository }}:{{ .Values.backend.backend.image.tag
+          | default .Chart.AppVersion }}
+        name: backend
+        ports:
+        - containerPort: 8000
+          protocol: TCP
+        resources: {}
+        volumeMounts:
+        - mountPath: /run/secrets
+          name: backend-secret
+      initContainers:
+      - args: {{- toYaml .Values.backend.passwordInit.args | nindent 8 }}
+        command:
+        - /bin/sh
+        - -c
+        env:
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.backend.passwordInit.image.repository }}:{{ .Values.backend.passwordInit.image.tag
+          | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.backend.passwordInit.imagePullPolicy }}
+        name: password-init
+        resources: {}
+        volumeMounts:
+        - mountPath: /run/secrets
+          name: backend-secret
+      restartPolicy: Always
+      volumes:
+      - emptyDir: {}
+        name: backend-secret
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "chart.fullname" . }}-frontend
+  labels:
+    io.kompose.service: frontend
+  {{- include "chart.labels" . | nindent 4 }}
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.34.0 (cbf2835db)
+spec:
+  replicas: {{ .Values.frontend.replicas }}
+  selector:
+    matchLabels:
+      io.kompose.service: frontend
+    {{- include "chart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        io.kompose.service: frontend
+      {{- include "chart.selectorLabels" . | nindent 8 }}
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.34.0 (cbf2835db)
+    spec:
+      containers:
+      - env:
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.frontend.frontend.image.repository }}:{{ .Values.frontend.frontend.image.tag
+          | default .Chart.AppVersion }}
+        name: frontend
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        resources: {}
+      restartPolicy: Always
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "chart.fullname" . }}-mongo
+  labels:
+    io.kompose.service: mongo
+  {{- include "chart.labels" . | nindent 4 }}
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.34.0 (cbf2835db)
+spec:
+  replicas: {{ .Values.mongo.replicas }}
+  selector:
+    matchLabels:
+      io.kompose.service: mongo
+    {{- include "chart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        io.kompose.service: mongo
+      {{- include "chart.selectorLabels" . | nindent 8 }}
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.34.0 (cbf2835db)
+    spec:
+      containers:
+      - env:
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.mongo.mongo.image.repository }}:{{ .Values.mongo.mongo.image.tag
+          | default .Chart.AppVersion }}
+        args: {{- toYaml .Values.mongo.mongo.args | nindent 8 }}
+        livenessProbe:
+          exec:
+            command:
+            - mongosh
+            - --eval
+            - db.adminCommand('ping')
+          failureThreshold: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+        name: mongo
+        ports:
+        - containerPort: 27017
+          protocol: TCP
+        resources: {}
+      restartPolicy: Always

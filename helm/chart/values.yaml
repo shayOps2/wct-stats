@@ -1,0 +1,55 @@
+backend:
+  backend:
+    args:
+    - export JWT_SECRET_KEY=$(cat $JWT_SECRET_KEY_FILE)  && exec gunicorn main:app
+      -c gunicorn.conf.py -k uvicorn.workers.UvicornWorker --bind 0.0.0:8000
+    env:
+      env: production
+      jwtSecretKeyFile: /run/secrets/backend-password
+      mongodbUrl: mongodb://mongo:27017
+    image:
+      repository: localhost
+      tag: 5000/wct-stats-backend
+  passwordInit:
+    args:
+    - python -c 'import secrets; print(secrets.token_urlsafe(32))' > /run/secrets/backend-password
+    image:
+      repository: python
+      tag: 3.12-slim
+    imagePullPolicy: IfNotPresent
+  ports:
+  - name: "8000"
+    port: 8000
+    targetPort: 8000
+  replicas: 1
+  strategy:
+    type: Recreate
+  type: ClusterIP
+frontend:
+  frontend:
+    image:
+      repository: localhost
+      tag: 5000/wct-stats-frontend
+  ports:
+  - name: "8080"
+    port: 8080
+    targetPort: 80
+  replicas: 1
+  type: ClusterIP
+kubernetesClusterDomain: cluster.local
+mongo:
+  restore:
+    args:
+    - mongorestore --host my-release-chart-mongo --dir=/dump --drop 
+  mongo:
+    args:
+    - --bind_ip_all
+    image:
+      repository: mongo
+      tag: "6.0"
+  ports:
+  - name: "27017"
+    port: 27017
+    targetPort: 27017
+  replicas: 1
+  type: ClusterIP

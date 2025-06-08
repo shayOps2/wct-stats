@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "chart.fullname" . }}-backend-ingress
+  labels:
+  {{- include "chart.labels" . | nindent 4 }}
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: backend.example
+    http:
+      paths:
+      - backend:
+          service:
+            name: '{{ include "chart.fullname" . }}-backend'
+            port:
+              number: 8000
+        path: /
+        pathType: Prefix
