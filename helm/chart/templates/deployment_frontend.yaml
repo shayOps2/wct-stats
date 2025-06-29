@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "chart.fullname" . }}-frontend
+  labels:
+    io.kompose.service: frontend
+  {{- include "chart.labels" . | nindent 4 }}
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.34.0 (cbf2835db)
+spec:
+  replicas: {{ .Values.frontend.replicas }}
+  selector:
+    matchLabels:
+      io.kompose.service: frontend
+    {{- include "chart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        io.kompose.service: frontend
+      {{- include "chart.selectorLabels" . | nindent 8 }}
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.34.0 (cbf2835db)
+    spec:
+      imagePullSecrets: 
+{{- toYaml .Values.frontend.imagePullSecrets | nindent 8 }}
+      containers:
+      - env:
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}
+        name: frontend
+        ports:
+        - containerPort: {{ (index .Values.frontend.ports 0).targetPort }}
+          protocol: TCP
+        resources: {}
+      restartPolicy: Always

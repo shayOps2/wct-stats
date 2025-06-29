@@ -12,8 +12,8 @@ spec:
       paths:
       - backend:
           service:
-            name: '{{ include "chart.fullname" . }}-backend'
+            name: {{ include "chart.fullname" . }}-backend
             port:
-              number: 8000
+              number: {{ (index .Values.backend.ports 0).port }}
         path: /
         pathType: Prefix

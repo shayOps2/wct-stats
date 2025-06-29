@@ -9,7 +9,14 @@ metadata:
     kompose.cmd: kompose convert
     kompose.version: 1.34.0 (cbf2835db)
 spec:
+  imagePullSecrets: 
+{{- toYaml .Values.mongo.restore.imagePullSecrets | nindent 4 }}
   containers:
-  - image: localhost:5000/wct-stats-mongo-restore
+  - image: {{ .Values.mongo.restore.image.repository }}:{{ .Values.mongo.restore.image.tag }}
     name: mongo-restore
-  restartPolicy: OnFailure
+    command: {{- toYaml .Values.backend.backend.command | nindent 8 }}
+    args:
+{{- range .Values.mongo.restore.args }}
+      - {{ . | replace "__MONGO_HOST__" (printf "%s-mongo" (include "chart.fullname" $)) }}
+{{- end }}    
+  restartPolicy: Never

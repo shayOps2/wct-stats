@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "chart.fullname" . }}-mongo
+  labels:
+    io.kompose.service: mongo
+  {{- include "chart.labels" . | nindent 4 }}
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.34.0 (cbf2835db)
+spec:
+  replicas: {{ .Values.mongo.replicas }}
+  selector:
+    matchLabels:
+      io.kompose.service: mongo
+    {{- include "chart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        io.kompose.service: mongo
+      {{- include "chart.selectorLabels" . | nindent 8 }}
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.34.0 (cbf2835db)
+    spec:
+      containers:
+      - env:
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.mongo.mongo.image.repository }}:{{ .Values.mongo.mongo.image.tag
+          | default .Chart.AppVersion }}
+        args: {{- toYaml .Values.mongo.mongo.args | nindent 8 }}
+        livenessProbe: {{- toYaml .Values.mongo.mongo.livenessProbe | nindent 10 }}
+        name: {{ include "chart.fullname" . }}-mongo
+        ports:
+        - containerPort: {{ (index .Values.mongo.ports 0).port }}
+          protocol: TCP
+        resources: {}
+      restartPolicy: Always
