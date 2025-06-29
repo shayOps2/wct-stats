@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      initContainers:
+        - name: request-infinity-token
+          image: badouralix/curl-jq:latest
+          command:
+            - sh
+            - -c
+            - |
+              TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+              curl -sSk \
+                -X POST \
+                https://kubernetes.default.svc/api/v1/namespaces/{{ .Release.Namespace }}/serviceaccounts/grafana-infinity-sa/token \
+                -H "Authorization: Bearer $TOKEN" \
+                -H "Content-Type: application/json" \
+                -d '{
+                  "apiVersion": "authentication.k8s.io/v1",
+                  "kind": "TokenRequest",
+                  "spec": {
+                    "expirationSeconds": 31536000
+                  }
+                }' | jq -r .status.token > /etc/shared/infinity-token
+          volumeMounts:
+            - name: token-volume
+              mountPath: /etc/shared
+
+      containers:
+        - name: grafana
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 3000
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: admin
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: admin
+            - name: GF_INSTALL_PLUGINS
+              value: "{{ join "," .Values.plugins }}"
+
+          volumeMounts:
+            - name: grafana-datasource
+              mountPath: /etc/grafana/provisioning/datasources
+              readOnly: true
+            - name: token-volume
+              mountPath: /etc/shared
+              readOnly: true
+
+      volumes:
+        - name: grafana-datasource
+          configMap:
+            name: grafana-datasource
+        - name: token-volume
+          emptyDir: {}              
