@@ -1,0 +1,46 @@
+name: Build And Deploy WCT Stats
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - uses: marceloprado/has-changed-path@v1.0.1
+        id: changed-backend
+        with:
+          paths: backend
+
+      - name:  'Automated Version Bump'
+        uses:  'phips28/gh-action-bump-version@master'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PACKAGE_FILENAME: backend/version.txt
+        with:
+          commit_message: 'CI - Bump version to {{version}} [skip ci]'
+          minor-wording:  'add,Adds,new'
+          major-wording:  'MAJOR,cut-major'
+          patch-wording:  'patch,fixes' 
+          push: false
+
+
+
+      - name: Read version
+        id: read-version
+        run: echo "VERSION=$(cat backend/version.txt)" >> $GITHUB_ENV
+
+      - name: Build and push backend image
+        if: steps.changed-backend.outputs.has_changed == 'true'
+        uses: docker/build-push-action@v2
+        with:
+          context: backend
+          push: false
+          tags: |
+            ghcr.io/shayops2/wct-stats-backend:latest 
+            ghcr.io/shayops2/wct-stats-backend:${{ steps.read-version.outputs.VERSION }}
