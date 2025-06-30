@@ -21,7 +21,7 @@ jobs:
         uses:  'phips28/gh-action-bump-version@master'
         env:
           GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
-          PACKAGE_FILENAME: backend/version.txt
+          PACKAGE_FILENAME: backend/version.json
         with:
           commit-message: 'CI - Bump version to {{version}} [skip ci]'
           minor-wording:  'add,Adds,new'
@@ -30,7 +30,7 @@ jobs:
 
       - id: read-version
         name: Read version
-        run: echo "VERSION=$(cat backend/version.txt)" >> $GITHUB_ENV
+        run: echo "VERSION=$(cat backend/version.json)" >> $GITHUB_ENV
 
       - name: Build and push backend image
         if: steps.changed-backend.outputs.has_changed == 'true'
