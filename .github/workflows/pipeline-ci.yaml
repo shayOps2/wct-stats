@@ -8,6 +8,9 @@ jobs:
   backend:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -66,18 +69,7 @@ jobs:
             
       - name: Commit version bump
         if: steps.changed-backend.outputs.changed == 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-
-          git add backend/version.txt
-          git commit -m "CI - Bump version to $VERSION [skip ci]" || echo "No changes to commit"
-
-          # Re-authenticate using token
-          REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
-          git remote set-url origin "$REPO_URL"
-
-          git push origin HEAD:${{ github.ref_name }}
-            
+        uses: stefanzweifel/git-auto-commit-action@v6
+        with:
+          commit_message: "Bump backend version to ${{ env.VERSION }} [skip ci]"
+          file_pattern: backend/version.txt
