@@ -20,7 +20,7 @@ jobs:
       - name:  'Automated Version Bump'
         uses:  'phips28/gh-action-bump-version@master'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
           PACKAGE_FILENAME: backend/version.txt
         with:
           commit-message: 'CI - Bump version to {{version}} [skip ci]'
@@ -28,7 +28,8 @@ jobs:
           major-wording:  'MAJOR,cut-major'
           patch-wording:  'patch,fixes' 
 
-        id: read-version
+      - id: read-version
+        name: Read version
         run: echo "VERSION=$(cat backend/version.txt)" >> $GITHUB_ENV
 
       - name: Build and push backend image
