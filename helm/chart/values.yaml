@@ -1,3 +1,6 @@
+# default values for the Helm chart
+# This file can be overridden by providing a custom values file when installing the chart
+
 backend:
   volumes:
   - emptyDir: {}
@@ -64,7 +67,18 @@ frontend:
 
 kubernetesClusterDomain: cluster.local
 
-
+ingress:
+  enabled: true
+  backend:
+    host: backend.example
+    paths:
+    - /
+    className: traefik
+  frontend:
+    host: frontend.example
+    paths:
+    - /
+    className: traefik
 
 mongo:
   restore:

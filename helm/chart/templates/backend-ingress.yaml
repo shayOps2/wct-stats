@@ -5,9 +5,9 @@ metadata:
   labels:
   {{- include "chart.labels" . | nindent 4 }}
 spec:
-  ingressClassName: traefik
+  ingressClassName: {{ .Values.ingress.backend.className  }}
   rules:
-  - host: backend.example
+  - host: {{ .Values.ingress.backend.host }}
     http:
       paths:
       - backend:
