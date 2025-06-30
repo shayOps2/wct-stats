@@ -20,6 +20,7 @@ jobs:
           paths: backend
 
       - name: bump version
+        if: steps.changed-backend.outputs.changed == 'true'
         run: |
           echo "Bumping version..."
           VERSION=$(cat backend/version.txt)
@@ -49,7 +50,7 @@ jobs:
           echo "Bumped $BUMP_TYPE version: $VERSION → $NEW_VERSION"      
           
           echo "$NEW_VERSION" > backend/version.txt
-          echo "VERSION=$NEW_VERSION" >> $GITHUB_ENV          
+          echo "VERSION=$NEW_VERSION" >> $GITHUB_ENV
 
 
       - name: Build and push backend image
@@ -61,4 +62,22 @@ jobs:
           tags: |
             ghcr.io/shayops2/wct-stats-backend:latest 
             ghcr.io/shayops2/wct-stats-backend:${{ env.VERSION }}
-          
+
+            
+      - name: Commit version bump
+        if: steps.bump_version.outputs.version != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+
+          git add backend/version.txt
+          git commit -m "CI - Bump version to $VERSION [skip ci]" || echo "No changes to commit"
+
+          # Re-authenticate using token
+          REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+          git remote set-url origin "$REPO_URL"
+
+          git push origin HEAD:${{ github.ref_name }}
+            
