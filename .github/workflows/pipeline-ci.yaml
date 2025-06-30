@@ -65,7 +65,7 @@ jobs:
 
             
       - name: Commit version bump
-        if: steps.bump_version.outputs.version != ''
+        if: steps.changed-backend.outputs.changed == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
         run: |
