@@ -60,5 +60,5 @@ jobs:
           push: false
           tags: |
             ghcr.io/shayops2/wct-stats-backend:latest 
-            ghcr.io/shayops2/wct-stats-backend:$VERSION
+            ghcr.io/shayops2/wct-stats-backend:${{ env.VERSION }}
           
