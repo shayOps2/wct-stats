@@ -11,6 +11,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 100
 
       - uses: marceloprado/has-changed-path@v1.0.1
         id: changed-backend
@@ -50,10 +52,6 @@ jobs:
           echo "VERSION=$NEW_VERSION" >> $GITHUB_ENV          
 
 
-      - id: read-version
-        name: Read version
-        run: echo "VERSION=$(cat backend/version.json)" >> $GITHUB_ENV
-
       - name: Build and push backend image
         if: steps.changed-backend.outputs.has_changed == 'true'
         uses: docker/build-push-action@v2
@@ -62,4 +60,5 @@ jobs:
           push: false
           tags: |
             ghcr.io/shayops2/wct-stats-backend:latest 
-            ghcr.io/shayops2/wct-stats-backend:${{ steps.read-version.outputs.VERSION }}
+            ghcr.io/shayops2/wct-stats-backend:$VERSION
+          
