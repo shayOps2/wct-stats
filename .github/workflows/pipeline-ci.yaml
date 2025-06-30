@@ -17,16 +17,38 @@ jobs:
         with:
           paths: backend
 
-      - name:  'Automated Version Bump'
-        uses:  'phips28/gh-action-bump-version@master'
-        env:
-          GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
-          PACKAGE_FILENAME: backend/version.json
-        with:
-          commit-message: 'CI - Bump version to {{version}} [skip ci]'
-          minor-wording:  'add,Adds,new'
-          major-wording:  'MAJOR,cut-major'
-          patch-wording:  'patch,fixes' 
+      - name: bump version
+        run: |
+          echo "Bumping version..."
+          VERSION=$(cat backend/version.txt)
+          VERSION=${VERSION:1}
+
+          IFS='.' read -r major minor patch <<< "$VERSION"    
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+
+          echo "Commit message: $COMMIT_MSG"
+
+          # Determine bump type
+          if echo "$COMMIT_MSG" | grep -iqE "MAJOR|BREAKING"; then
+            major=$((major + 1))
+            minor=0
+            patch=0
+            BUMP_TYPE="major"
+          elif echo "$COMMIT_MSG" | grep -iqE "MINOR|feature|add"; then
+            minor=$((minor + 1))
+            patch=0
+            BUMP_TYPE="minor"
+          else
+            patch=$((patch + 1))
+            BUMP_TYPE="patch"
+          fi
+
+          NEW_VERSION="v$major.$minor.$patch"
+          echo "Bumped $BUMP_TYPE version: $VERSION → $NEW_VERSION"      
+          
+          echo "$NEW_VERSION" > backend/version.txt
+          echo "VERSION=$NEW_VERSION" >> $GITHUB_ENV          
+
 
       - id: read-version
         name: Read version
