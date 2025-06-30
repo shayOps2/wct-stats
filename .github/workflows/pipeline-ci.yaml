@@ -53,7 +53,7 @@ jobs:
 
 
       - name: Build and push backend image
-        if: steps.changed-backend.outputs.has_changed == 'true'
+        if: steps.changed-backend.outputs.changed == 'true'
         uses: docker/build-push-action@v2
         with:
           context: backend
