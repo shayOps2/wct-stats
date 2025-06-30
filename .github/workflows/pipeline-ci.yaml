@@ -23,15 +23,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PACKAGE_FILENAME: backend/version.txt
         with:
-          commit_message: 'CI - Bump version to {{version}} [skip ci]'
+          commit-message: 'CI - Bump version to {{version}} [skip ci]'
           minor-wording:  'add,Adds,new'
           major-wording:  'MAJOR,cut-major'
           patch-wording:  'patch,fixes' 
-          push: false
 
-
-
-      - name: Read version
         id: read-version
         run: echo "VERSION=$(cat backend/version.txt)" >> $GITHUB_ENV
 
