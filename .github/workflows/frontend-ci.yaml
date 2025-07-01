@@ -6,9 +6,9 @@ on:
     paths:
       - 'frontend/**'
 
-concurrency:
-  group: version-bump-main
-  cancel-in-progress: false
+# concurrency:
+#   group: version-bump-main
+#   cancel-in-progress: false
   
 
 jobs:
@@ -70,8 +70,17 @@ jobs:
             ghcr.io/shayops2/wct-stats-frontend:latest 
             ghcr.io/shayops2/wct-stats-frontend:${{ env.VERSION }}
 
-      - name: Commit version bump
-        uses: stefanzweifel/git-auto-commit-action@v6
+      - name: Commit, pull, and push version bump
+        uses: mgrybyk-org/git-commit-pull-push-action@v1
         with:
+          branch: main                       
           commit_message: "Bump frontend version to ${{ env.VERSION }} [skip ci]"
-          file_pattern: frontend/version.txt
+          pull_args: --rebase -X theirs            
+
+
+      # - name: Commit version bump
+      #   uses: stefanzweifel/git-auto-commit-action@v6
+      #   with:
+      #     commit_message: "Bump frontend version to ${{ env.VERSION }} [skip ci]"
+      #     file_pattern: frontend/version.txt
+
