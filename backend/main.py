@@ -11,7 +11,7 @@ from crud import get_user_by_username, add_user
 from routers.login import get_password_hash
 from models import User, UserRole
 from contextlib import asynccontextmanager
-from motor.motor_asyncio import AsyncIOMotorClient  # <-- Add this import
+from motor.motor_asyncio import AsyncIOMotorClient 
 import os
 
 # Configure logging
