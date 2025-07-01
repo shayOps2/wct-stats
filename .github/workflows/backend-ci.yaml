@@ -6,13 +6,62 @@ on:
     paths:
       - 'backend/**'
 
-# concurrency:
-#   group: version-bump-main
-#   cancel-in-progress: false
-  
 
 jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+
+    services:
+      mongo:
+        image: mongo:6.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          echo "Installing dependencies..."
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Start FastAPI app (in background)
+        run: |
+          cd backend
+          uvicorn main:app --host 0.0.0.0 --port 8000 &
+        shell: bash
+
+      - name: Wait for FastAPI to be ready
+        run: |
+          for i in {1..10}; do
+            curl -s http://localhost:8000/docs && break
+            echo "Waiting for FastAPI..."
+            sleep 2
+          done
+
+      - name: Run tests
+        run: |
+          echo "Running tests..."
+          cd backend
+          pytest
+
+
   backend:
+    # run after backend-tests successfully completes
+    needs: backend-tests
+    if: ${{ success() }}
     runs-on: ubuntu-latest
 
     permissions:
@@ -78,9 +127,3 @@ jobs:
           branch: main                       
           commit_message: "Bump backend version to ${{ env.VERSION }} [skip ci]"
           pull_args: --rebase -X theirs            
-
-      # - name: Commit version bump
-      #   uses: stefanzweifel/git-auto-commit-action@v6
-      #   with:
-      #     commit_message: "Bump backend version to ${{ env.VERSION }} [skip ci]"
-      #     file_pattern: backend/version.txt
