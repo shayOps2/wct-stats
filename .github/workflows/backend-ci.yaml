@@ -36,7 +36,7 @@ jobs:
           echo "Installing dependencies..."
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
-          pip install pytest pytest-asyncio
+          pip install pytest pytest-asyncio httpx
 
       - name: Start FastAPI app (in background)
         run: |
