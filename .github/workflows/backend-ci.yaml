@@ -56,7 +56,14 @@ jobs:
         run: |
           echo "Running tests..."
           cd backend
-          pytest
+          pytest --junit-xml=test-results.xml
+          echo "Tests completed."
+    
+      - name: Upload test results
+        uses: pmeier/pytest-results-action@main
+        with:
+          path: backend/test-results.xml
+          summary: true
 
 
   backend:
