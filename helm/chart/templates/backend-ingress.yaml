@@ -14,6 +14,16 @@ metadata:
   {{- end }}  
 spec:
   ingressClassName: {{ .Values.ingress.backend.className  }}
+  {{- if eq .Values.ingress.backend.className "tailscale" }}
+  defaultBackend: 
+    service:
+      name: {{ include "chart.fullname" . }}-backend
+      port:
+        number: {{ (index .Values.backend.ports 0).port }}
+  tls:
+    - hosts:
+      - {{ .Values.ingress.backend.host }}
+  {{ else }}  
   rules:
   - host: {{ .Values.ingress.backend.host }}
     http:
@@ -25,3 +35,4 @@ spec:
               number: {{ (index .Values.backend.ports 0).port }}
         path: /
         pathType: Prefix
+  {{- end }}
