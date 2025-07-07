@@ -70,17 +70,18 @@ kubernetesClusterDomain: cluster.local
 ingress:
   enabled: true
   annotations:
-    enabled_annotations: false
+    enabled_annotations: true
+    tailscale.com/funnel: "true"
   backend:
-    host: backend.example
+    host: backend.cheetoh-gila.ts.net
     paths:
     - /
-    className: traefik
+    className: tailscale
   frontend:
-    host: frontend.example
+    host: frontend.cheetoh-gila.ts.net
     paths:
     - /
-    className: traefik
+    className: tailscale
 
 mongo:
   restore:

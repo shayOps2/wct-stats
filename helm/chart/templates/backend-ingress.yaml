@@ -4,6 +4,14 @@ metadata:
   name: {{ include "chart.fullname" . }}-backend-ingress
   labels:
   {{- include "chart.labels" . | nindent 4 }}
+  {{- if .Values.ingress.annotations.enabled_annotations }}
+  annotations:
+    {{- range $key, $value := .Values.ingress.annotations }}
+      {{- if ne $key "enabled_annotations" }}
+    {{ $key }}: {{ $value | quote }}
+      {{- end }}
+    {{- end }}
+  {{- end }}  
 spec:
   ingressClassName: {{ .Values.ingress.backend.className  }}
   rules:

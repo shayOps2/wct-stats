@@ -6,11 +6,6 @@ on:
     paths:
       - 'frontend/**'
 
-# concurrency:
-#   group: version-bump-main
-#   cancel-in-progress: false
-  
-
 jobs:
   frontend:
     runs-on: ubuntu-latest
@@ -70,17 +65,16 @@ jobs:
             ghcr.io/shayops2/wct-stats-frontend:latest 
             ghcr.io/shayops2/wct-stats-frontend:${{ env.VERSION }}
 
+      # - name: jq update version in helm chart
+      #   uses: sergeysova/jq-action@v2
+      #   with:
+      #     args: '.frontend.image.tag = env.VERSION'
+      #     file: helm/chart/values-tailscale.yaml
+      #     output: helm/chart/values-tailscale.yaml
+
       - name: Commit, pull, and push version bump
         uses: mgrybyk-org/git-commit-pull-push-action@v1
         with:
           branch: main                       
           commit_message: "Bump frontend version to ${{ env.VERSION }} [skip ci]"
           pull_args: --rebase -X theirs            
-
-
-      # - name: Commit version bump
-      #   uses: stefanzweifel/git-auto-commit-action@v6
-      #   with:
-      #     commit_message: "Bump frontend version to ${{ env.VERSION }} [skip ci]"
-      #     file_pattern: frontend/version.txt
-
