@@ -5,6 +5,7 @@ origins = [
     "http://localhost:3000",  # Local development with React
     "http://frontend.example.com", # minikube frontend URL
     "http://frontend.example", # k3s frontend URL
+    "https://wct.cheetoh-gila.ts.net" # Production URL
 ]
 
 def add_cors_middleware(app):

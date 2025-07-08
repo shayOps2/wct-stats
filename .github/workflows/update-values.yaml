@@ -1,0 +1,39 @@
+name: update values for helm chart
+
+concurrncy:
+  group: update-values
+  cancel-in-progress: true
+on:
+  workflow_run:
+    types: [completed]
+    workflows: ["frontend-ci.yaml", "backend-ci.yaml"]
+    branches: [main]
+
+jobs:
+  update-values:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+    
+      - name: 'Setup yq'
+        uses: dcarbone/install-yq-action@v1
+
+      - name: Update values file
+        run: |
+          echo "Updating values-tailscale.yaml with new frontend image tag..."
+          FRONTEND_VERSION=$(cat frontend/version.txt)
+          echo "Current Frontend version: $FRONTEND_VERSION"
+          yq e -i ".frontend.image.tag = \"$FRONTEND_VERSION\"" helm/chart/values-tailscale.yaml
+
+          echo "Updating values-tailscale.yaml with new backend image tag..."
+          BACKEND_VERSION=$(cat backend/version.txt)
+          echo "Current backend version: $BACKEND_VERSION"
+          yq e -i ".backend.image.tag = \"$BACKEND_VERSION\"" helm/chart/values-tailscale.yaml
+
+      - name: Commit version bump
+        uses: mgrybyk-org/git-commit-pull-push-action@v1
+        with:
+          branch: main                       
+          commit_message: "updated values file to new versions [skip ci]"
+          pull_args: --rebase -X theirs         

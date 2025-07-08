@@ -59,18 +59,13 @@ jobs:
       - name: Build and push frontend image
         uses: docker/build-push-action@v2
         with:
+          build-args: |
+            REACT_APP_BACKEND_URL=https://backend.cheetoh-gila.ts.net
           context: frontend
           push: true
           tags: |
             ghcr.io/shayops2/wct-stats-frontend:latest 
             ghcr.io/shayops2/wct-stats-frontend:${{ env.VERSION }}
-
-      # - name: jq update version in helm chart
-      #   uses: sergeysova/jq-action@v2
-      #   with:
-      #     args: '.frontend.image.tag = env.VERSION'
-      #     file: helm/chart/values-tailscale.yaml
-      #     output: helm/chart/values-tailscale.yaml
 
       - name: Commit, pull, and push version bump
         uses: mgrybyk-org/git-commit-pull-push-action@v1
