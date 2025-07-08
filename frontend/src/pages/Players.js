@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { BACKEND_URL } from "../config"; // Import the constant
 
+const token = localStorage.getItem("token");
+
 function Players() {
   const [players, setPlayers] = useState([]);
   const [name, setName] = useState("");
@@ -24,6 +26,9 @@ function Players() {
       const response = await fetch(`${BACKEND_URL}/players/`, {
         method: "POST",
         body: formData,
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}), // Include token if available
+        },
       });
 
       if (!response.ok) {
