@@ -18,7 +18,7 @@ spec:
   tls:
     - hosts:
       - {{ .Values.ingress.frontend.host }}
-  {{ - end }}
+  {{- end }}
   rules:
   - host: {{ .Values.ingress.frontend.host }}
     http:

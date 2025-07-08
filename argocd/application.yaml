@@ -10,11 +10,14 @@ spec:
     repoURL: https://github.com/shayOps2/wct-stats.git
     targetRevision: main
     path: helm/chart
+    helm:
+      valueFiles:
+        - values-tailscale.yaml
 
   destination:
     server: https://kubernetes.default.svc
     namespace: default
-    
+
   syncPolicy:
     automated:
       prune: true
