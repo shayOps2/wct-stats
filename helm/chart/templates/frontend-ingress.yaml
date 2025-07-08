@@ -15,15 +15,10 @@ metadata:
 spec:
   ingressClassName: {{ .Values.ingress.frontend.className }}
   {{- if eq .Values.ingress.frontend.className "tailscale" }}
-  defaultBackend: 
-    service:
-      name: {{ include "chart.fullname" . }}-frontend
-      port:
-        number: {{ (index .Values.frontend.ports 0).port }}
   tls:
     - hosts:
       - {{ .Values.ingress.frontend.host }}
-  {{ else }}
+  {{ - end }}
   rules:
   - host: {{ .Values.ingress.frontend.host }}
     http:
@@ -35,4 +30,3 @@ spec:
               number: {{ (index .Values.frontend.ports 0).port}}
         path: /
         pathType: Prefix
-  {{- end }}
