@@ -6,7 +6,7 @@ concurrncy:
 on:
   workflow_run:
     types: [completed]
-    workflows: ["frontend-ci.yaml", "backend-ci.yaml"]
+    workflows: ["Build And Deploy WCT Stats Frontend", "Build And Deploy WCT Stats Backend"]
     branches: [main]
 
 jobs:
