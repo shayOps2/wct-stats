@@ -1,6 +1,6 @@
 name: update values for helm chart
 
-concurrncy:
+concurrency:
   group: update-values
   cancel-in-progress: true
 on:
