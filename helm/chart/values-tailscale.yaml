@@ -45,8 +45,7 @@ backend:
   strategy:
     type: Recreate
   type: ClusterIP
-  image:
-    tag: v1.0.1
+
 frontend:
   image:
     repository: ghcr.io/shayops2/wct-stats-frontend
