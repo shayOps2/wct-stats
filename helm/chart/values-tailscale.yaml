@@ -23,7 +23,7 @@ backend:
         value: mongodb://__MONGO_HOST__:27017
     image:
       repository: ghcr.io/shayops2/wct-stats-backend
-      tag: "0.1"
+      tag: "v1.0.1"
     imagePullSecrets:
       - name: regcred
     imagePullPolicy: IfNotPresent
@@ -45,7 +45,6 @@ backend:
   strategy:
     type: Recreate
   type: ClusterIP
-
 frontend:
   image:
     repository: ghcr.io/shayops2/wct-stats-frontend
