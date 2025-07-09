@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { BACKEND_URL } from "../config"; // Import the constant
 
-const token = localStorage.getItem("token");
 
 function Players() {
   const [players, setPlayers] = useState([]);
@@ -21,13 +20,14 @@ function Players() {
     const formData = new FormData();
     formData.append("name", name);
     if (image) formData.append("image", image);
+    const token = localStorage.getItem("token");
 
     try {
       const response = await fetch(`${BACKEND_URL}/players/`, {
         method: "POST",
         body: formData,
         headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}), // Include token if available
+          ...(token ? { Authorization: `Bearer ${token}` } : {}), 
         },
       });
 
@@ -50,7 +50,13 @@ function Players() {
   };
 
   const handleDelete = async id => {
-    await fetch(`${BACKEND_URL}/players/${id}`, { method: "DELETE" });
+    const token = localStorage.getItem("token");
+    await fetch(`${BACKEND_URL}/players/${id}`, { 
+      method: "DELETE",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
     fetchPlayers();
   };
 
