@@ -1,0 +1,6 @@
+apiVersion: tailscale.com/v1alpha1
+kind: Connector
+metadata:
+  name: vault-connector
+spec:
+  appConnector: {}
