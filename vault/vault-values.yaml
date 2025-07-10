@@ -1,0 +1,10 @@
+server:
+  ingress:
+    enabled: true
+    ingressClassName: tailscale
+    hosts:
+    - host: vault.cheetoh-gila.ts.net
+      paths: ["/"]
+    tls:
+      - hosts:
+          - vault.cheetoh-gila.ts.net

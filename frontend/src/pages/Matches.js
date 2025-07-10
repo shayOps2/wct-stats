@@ -119,7 +119,11 @@ function Matches() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+    const token = localStorage.getItem("token");
+    if (!token) {
+      console.error("No token found in localStorage");
+    }
+
     // Generate team names if empty
     const submissionData = {
       match_type: matchType,
@@ -142,6 +146,7 @@ function Matches() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}), 
       },
       body: JSON.stringify(submissionData),
     });
@@ -246,6 +251,7 @@ function Matches() {
     // Find the match to show details in confirmation
     const matchToDelete = matches.find(m => m.id === matchId);
     if (!matchToDelete) return;
+    const token = localStorage.getItem("token");
 
     const roundCount = matchToDelete.rounds.length;
     const matchType = matchToDelete.match_type;
@@ -271,6 +277,7 @@ function Matches() {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ confirm: userConfirmed })
       });
@@ -293,11 +300,13 @@ function Matches() {
   const handleAddRound = async (e) => {
     e.preventDefault();
     if (!selectedMatch || !canAddMoreRounds(selectedMatch)) return;
+    const token = localStorage.getItem("token");
 
     const response = await fetch(`${BACKEND_URL}/matches/${selectedMatch.id}/rounds`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify({
         chaser_id: roundData.chaser_id,
@@ -406,6 +415,7 @@ function Matches() {
       setEditingRound(null);
       return;
     }
+    const token = localStorage.getItem("token");
   
     try {
       // Prepare the payload for updating the tag time
@@ -417,7 +427,10 @@ function Matches() {
       // Send the update request to the backend
       const matchRoundUpdateResponse = await fetch(`${BACKEND_URL}/matches/${selectedMatch.id}/rounds/${editingRound.index}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+         },
         body: JSON.stringify(tagTimeUpdatePayload),
       });
   
@@ -566,9 +579,14 @@ function Matches() {
 
   const handleUpdateRoundTime = async (matchId, roundIndex, roundTime) => {
     try {
+      const token = localStorage.getItem("token");
+
       const response = await fetch(`${BACKEND_URL}/matches/${matchId}/rounds/${roundIndex}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           round_hour: roundTime.hour || 0,
           round_minute: roundTime.minute || 0,
@@ -597,10 +615,15 @@ function Matches() {
     if (!window.confirm("Are you sure you want to delete the last round?")) {
       return;
     }
+    const token = localStorage.getItem("token");
 
     try {
       const response = await fetch(`${BACKEND_URL}/matches/${selectedMatch.id}/rounds/last`, {
         method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
 
       if (response.ok) {

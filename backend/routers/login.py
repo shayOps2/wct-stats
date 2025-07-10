@@ -9,6 +9,7 @@ import jwt
 import os
 import re
 from database import get_db
+import logging
 
 if os.environ.get("ENV", "development") == "development":
     from dotenv import load_dotenv
@@ -21,6 +22,10 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 day
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login/token")
+
+# Add logger setup at the top (if not already present)
+logger = logging.getLogger("jwt")
+logging.basicConfig(level=logging.INFO)
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
@@ -77,14 +82,18 @@ async def register_user(
 
 # Dependency to get current user from token
 def get_current_user(token: str = Depends(oauth2_scheme)):
+    logger.info(f"Validating JWT token: {token[:30]}...")  # Log the start of validation (truncate for safety)
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         role: str = payload.get("role")
+        logger.info(f"JWT payload: username={username}, role={role}")
         if username is None or role is None:
+            logger.warning("JWT token missing username or role")
             raise HTTPException(status_code=401, detail="Invalid token")
         return {"username": username, "role": role}
-    except jwt.PyJWTError:
+    except jwt.PyJWTError as e:
+        logger.error(f"JWT validation failed: {str(e)}")
         raise HTTPException(status_code=401, detail="Invalid token")
 
 @router.get("/")
