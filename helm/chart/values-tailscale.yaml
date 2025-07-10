@@ -23,7 +23,7 @@ backend:
         value: mongodb://__MONGO_HOST__:27017
     image:
       repository: ghcr.io/shayops2/wct-stats-backend
-      tag: "v1.0.2"
+      tag: "v1.0.3"
     imagePullSecrets:
       - name: regcred
     imagePullPolicy: IfNotPresent
