@@ -69,4 +69,3 @@ yarn-error.log*
 terraform.tfstate
 terraform.tfstate.backup
 
-vault/sidecar-deploymeny.yaml
