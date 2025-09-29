@@ -5,17 +5,14 @@ metadata:
 
 build:
   artifacts:
-    - image: ghcr.io/shayops2/wct-stats-frontend
+    - image: frontend
       context: frontend
       docker:
         buildArgs:
           REACT_APP_BACKEND_URL: "http://backend.localhost:8081"      
-        dockerfile: Dockerfile
         
-    - image: ghcr.io/shayops2/wct-stats-backend
+    - image: backend
       context: backend
-      docker:
-        dockerfile: Dockerfile
 
 deploy:
   helm:
@@ -23,10 +20,11 @@ deploy:
       - name: wct
         chartPath: helm/chart
         setValueTemplates:
-          frontend.image.repository: "{{.IMAGE_REPO_ghcr_io_shayops2_wct_stats_frontend}}"
-          frontend.image.tag: "{{.IMAGE_TAG_ghcr_io_shayops2_wct_stats_frontend}}"
-          backend.backend.image.repository: "{{.IMAGE_REPO_ghcr_io_shayops2_wct_stats_backend}}"
-          backend.backend.image.tag: "{{.IMAGE_TAG_ghcr_io_shayops2_wct_stats_backend}}"
+          frontend.image.repository: "{{.IMAGE_REPO_frontend}}"
+          frontend.image.tag: "{{.IMAGE_TAG_frontend}}"
+          
+          backend.backend.image.repository: "{{.IMAGE_REPO_backend}}"
+          backend.backend.image.tag: "{{.IMAGE_TAG_backend}}"
         valuesFiles:
           - helm/chart/values-local-dev.yaml
           
