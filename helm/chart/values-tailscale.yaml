@@ -5,13 +5,10 @@ backend:
   image:
     repository: ghcr.io/shayops2/wct-stats-backend
     tag: "v1.0.3"
-
 frontend:
   image:
     repository: ghcr.io/shayops2/wct-stats-frontend
     tag: "v1.1.2"
-
-
 ingress:
   enabled: true
   annotations:
