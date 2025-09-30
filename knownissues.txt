@@ -1,3 +1,4 @@
 when deleting round evader is empty (fixed after refresh)
 need to add global error handler in frontend, to catch 422 (API error), 429 (rate limit error), 404 error, etc...
 refreshing frontend page gives 404 error 
+404 on backend (saying cors but it shouldnt be cors), happens only after chart changes (maybe something broke, logs are normal)

@@ -2,47 +2,29 @@
 # This file can be overridden by providing a custom values file when installing the chart
 
 backend:
-  volumes:
-  - emptyDir: {}
-    name: backend-secret
-  volumeMounts:
-  - mountPath: /run/secrets
-    name: backend-secret
-  backend:
-    command:
+  command:
     - /bin/sh
     - -c
-    args:
-    - export JWT_SECRET_KEY=$(cat $JWT_SECRET_KEY_FILE)  && exec gunicorn main:app
-      -c gunicorn.conf.py -k uvicorn.workers.UvicornWorker --bind 0.0.0:8000
-    env:
+  args:
+    - exec gunicorn main:app -c gunicorn.conf.py -k uvicorn.workers.UvicornWorker --bind 0.0.0:8000
+  env:
     - name: ENV
       value: production
-    - name: JWT_SECRET_KEY_FILE
-      value: /run/secrets/backend-password
     - name: MONGODB_URL
       value: mongodb://__MONGO_HOST__:27017
-    image:
-      repository: ghcr.io/shayops2/wct-stats-backend
-      tag: "0.1"
-    imagePullSecrets: 
-      - name: regcred    
-    imagePullPolicy: IfNotPresent
-
-  passwordInit:
-    args:
-    - python -c 'import secrets; print(secrets.token_urlsafe(32))' > /run/secrets/backend-password
-    command:
-    - /bin/sh
-    - -c
-    image:
-      repository: python
-      tag: "3.12-slim"
-    imagePullPolicy: IfNotPresent
+  envFrom:
+  - secretRef:
+      name: jwt-token
+  image:
+    repository: ghcr.io/shayops2/wct-stats-backend
+    tag: "v1.0.3"
+  imagePullSecrets:
+    - name: regcred
+  imagePullPolicy: IfNotPresent
   ports:
-  - name: "8000"
-    port: 8000
-    targetPort: 8000
+    - name: "8000"
+      port: 8000
+      targetPort: 8000
   replicas: 1
   strategy:
     type: Recreate

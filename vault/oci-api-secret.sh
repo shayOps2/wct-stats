@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+set -euo pipefail
 # Namespace where External Secrets Operator runs
 NAMESPACE="default"
 SECRET_NAME="oci-credentials"
@@ -26,4 +26,28 @@ kubectl create secret generic "$SECRET_NAME" \
   --from-literal=fingerprint="$FINGERPRINT" \
   --from-file=privateKey="$PRIVATE_KEY_PATH"
 
+if [[ $? -ne 0 ]]; then
+  echo "Error: Failed to create secret."
+  exit 1
+fi
 echo "✅ Secret '$SECRET_NAME' created in namespace '$NAMESPACE'."
+
+helm repo add external-secrets https://charts.external-secrets.io
+helm repo update
+
+helm install external-secrets external-secrets/external-secrets \
+  -n external-secrets \
+  --create-namespace \
+  --set installCRDs=true
+
+echo "✅ External Secrets Operator installed."
+echo "Waiting for External Secrets Operator to be ready..."
+kubectl wait --for=condition=available --timeout=200s deployment/external-secrets -n external-secrets
+
+kubectl apply -f secret-store-oci.yaml -n "$NAMESPACE"
+echo "✅ SecretStore applied."
+
+kubectl apply -f external-secret-oci.yaml -n "$NAMESPACE"
+echo "✅ ExternalSecret applied."
+
+echo "Setup complete. External Secrets Operator is configured to use OCI API credentials."

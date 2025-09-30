@@ -45,6 +45,7 @@ async def lifespan(app: FastAPI):
         client.close()
 
 app = FastAPI(lifespan=lifespan)
+add_cors_middleware(app)
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -55,7 +56,7 @@ app.include_router(players.router, prefix="/players", tags=["Players"])
 app.include_router(matches.router, prefix="/matches", tags=["Matches"])
 app.include_router(pins.router)
 
-add_cors_middleware(app)
+
 
 @app.get("/")
 def root():

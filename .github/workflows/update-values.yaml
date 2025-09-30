@@ -33,7 +33,7 @@ jobs:
           echo "Updating values-tailscale.yaml with new backend image tag..."
           BACKEND_VERSION=$(cat backend/version.txt)
           echo "Current backend version: $BACKEND_VERSION"
-          yq e -i ".backend.backend.image.tag = \"$BACKEND_VERSION\"" helm/chart/values-tailscale.yaml
+          yq e -i ".backend.image.tag = \"$BACKEND_VERSION\"" helm/chart/values-tailscale.yaml
 
       - name: Commit version bump
         uses: mgrybyk-org/git-commit-pull-push-action@v1

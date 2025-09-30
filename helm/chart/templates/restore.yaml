@@ -14,7 +14,7 @@ spec:
   containers:
   - image: {{ .Values.mongo.restore.image.repository }}:{{ .Values.mongo.restore.image.tag }}
     name: mongo-restore
-    command: {{- toYaml .Values.backend.backend.command | nindent 8 }}
+    command: {{- toYaml .Values.backend.command | nindent 8 }}
     args:
 {{- range .Values.mongo.restore.args }}
       - {{ . | replace "__MONGO_HOST__" (printf "%s-mongo" (include "chart.fullname" $)) }}

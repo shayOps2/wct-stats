@@ -3,55 +3,40 @@ kind: Deployment
 metadata:
   name: {{ include "chart.fullname" . }}-backend
   labels:
-    io.kompose.service: backend
-  {{- include "chart.labels" . | nindent 4 }}
-  annotations:
-    kompose.cmd: kompose convert
-    kompose.version: 1.34.0 (cbf2835db)
+    {{- include "chart.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.backend.replicas }}
   strategy:
     type: {{ .Values.backend.strategy.type | quote }}
   selector:
     matchLabels:
-      io.kompose.service: backend
-    {{- include "chart.selectorLabels" . | nindent 6 }}
+      {{- include "chart.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        io.kompose.service: backend
-      {{- include "chart.selectorLabels" . | nindent 8 }}
-      annotations:
-        kompose.cmd: kompose convert
-        kompose.version: 1.34.0 (cbf2835db)
+        {{- include "chart.selectorLabels" . | nindent 8 }}
     spec:
       imagePullSecrets: 
-{{- toYaml .Values.backend.backend.imagePullSecrets | nindent 8 }}
+{{- toYaml .Values.backend.imagePullSecrets | nindent 8 }}
       containers:
-      - args: {{- toYaml .Values.backend.backend.args | nindent 8 }}
-        command: {{- toYaml .Values.backend.backend.command | nindent 8 }}
+      - args: {{- toYaml .Values.backend.args | nindent 8 }}
+        command: {{- toYaml .Values.backend.command | nindent 8 }}
         env:
-        {{- range .Values.backend.backend.env }}
+        {{- range .Values.backend.env }}
         - name: {{ .name }}
           value: {{ .value | replace "__MONGO_HOST__" (printf "%s-mongo" (include "chart.fullname" $)) | quote }}
         {{- end }}
-        image: {{ .Values.backend.backend.image.repository }}:{{ .Values.backend.backend.image.tag }}
+        {{- if .Values.backend.envFrom }}
+        envFrom:
+        {{- range .Values.backend.envFrom }}
+        - secretRef:
+            name: {{ .secretRef.name }}
+        {{- end }}
+        {{- end }}
+        image: {{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}
         name: backend
         ports:
         - containerPort: {{ (index .Values.backend.ports 0).targetPort }}
           protocol: TCP
         resources: {}
-        volumeMounts: {{- toYaml .Values.backend.volumeMounts | nindent 8 }}
-      initContainers:
-      - args: {{- toYaml .Values.backend.passwordInit.args | nindent 8 }}
-        command: {{- toYaml .Values.backend.passwordInit.command | nindent 8 }}
-        env:
-        - name: KUBERNETES_CLUSTER_DOMAIN
-          value: {{ quote .Values.kubernetesClusterDomain }}
-        image: {{ .Values.backend.passwordInit.image.repository }}:{{ .Values.backend.passwordInit.image.tag }}
-        imagePullPolicy: {{ .Values.backend.passwordInit.imagePullPolicy }}
-        name: password-init
-        resources: {}
-        volumeMounts: {{- toYaml .Values.backend.volumeMounts | nindent 8 }}
       restartPolicy: Always
-      volumes: {{- toYaml .Values.backend.volumes | nindent 6 }}
