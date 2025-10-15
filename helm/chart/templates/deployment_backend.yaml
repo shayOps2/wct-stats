@@ -3,18 +3,27 @@ kind: Deployment
 metadata:
   name: {{ include "chart.fullname" . }}-backend
   labels:
-    {{- include "chart.labels" . | nindent 4 }}
+    io.kompose.service: backend
+  {{- include "chart.labels" . | nindent 4 }}
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.34.0 (cbf2835db)  
 spec:
   replicas: {{ .Values.backend.replicas }}
   strategy:
     type: {{ .Values.backend.strategy.type | quote }}
   selector:
     matchLabels:
+      io.kompose.service: backend    
       {{- include "chart.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "chart.selectorLabels" . | nindent 8 }}
+        io.kompose.service: backend
+      {{- include "chart.selectorLabels" . | nindent 8 }}
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.34.0 (cbf2835db)
     spec:
       imagePullSecrets: 
 {{- toYaml .Values.backend.imagePullSecrets | nindent 8 }}
