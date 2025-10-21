@@ -41,6 +41,7 @@ function formatDateForAPI(dateString) {
 function Matches() {
   const [matches, setMatches] = useState([]);
   const [players, setPlayers] = useState([]);
+  const [backupRunning, setBackupRunning] = useState(false);
   const [matchType, setMatchType] = useState("1v1");
   const [formData, setFormData] = useState({
     date: formatDateForInput(new Date()),
@@ -65,6 +66,33 @@ function Matches() {
   const [editingRound, setEditingRound] = useState(null);
   const [currentMatchPins, setCurrentMatchPins] = useState([]);
   const [editingRoundTime, setEditingRoundTime] = useState(null);
+
+  const triggerBackup = async () => {
+    if (!window.confirm("Trigger backup? Admin only.")) return;
+    const token = localStorage.getItem("token");
+    setBackupRunning(true);
+    try {
+      const resp = await fetch(`${BACKEND_URL}/admin/backup`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        alert("Backup started.");
+      } else {
+        const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+        alert("Backup failed: " + (err.detail || resp.statusText));
+      }
+    } catch (e) {
+      console.error("Backup error", e);
+      alert("Backup error: " + e.message);
+    } finally {
+      setBackupRunning(false);
+    }
+  };
 
   // Fetch matches and players on component mount
   useEffect(() => {
@@ -642,7 +670,12 @@ function Matches() {
 
   return (
     <div style={{ padding: 24 }}>
-      <h2>Matches</h2>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <h2 style={{ margin: 0 }}>Matches</h2>
+        <button onClick={triggerBackup} disabled={backupRunning} style={{ padding: "6px 10px" }}>
+          {backupRunning ? "Starting..." : "Trigger Backup"}
+        </button>
+      </div>
       
       {/* Match Creation Form */}
       <form onSubmit={handleSubmit} style={{ marginBottom: 24, padding: 16, border: "1px solid #ccc", borderRadius: 8 }}>
