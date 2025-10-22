@@ -28,27 +28,4 @@ spec:
               value: "{{ printf "%s-mongo" (include "chart.fullname" .) }}"
           envFrom:
 {{- toYaml .Values.mongo.restore.envFrom | nindent 12 }}
-          command:
-            - /bin/sh
-            - -c
-          args:
-            - |
-              set -eux;
-
-              # skip restore if mongo already contains user data (more than 'admin' DB)
-              COUNT=$(mongo --host "$MONGO_HOST" --quiet --eval "db.adminCommand('listDatabases').databases.length" | tr -d '\r')
-              echo "Detected database count: ${COUNT}";
-              if [ -n "$COUNT" ] && [ "$COUNT" -gt 1 ]; then
-                echo "Mongo already has data, skipping restore";
-                exit 0;
-              fi
-                            
-              TMPDIR=/tmp/restore;
-              mkdir -p "$TMPDIR";
-              apt-get update && apt-get install -y curl
-              echo "Downloading dump from $UPLOAD_PAR_URL";
-              URL=$UPLOAD_PAR_URL"mongodump-wct.gz";
-              curl -fSL -o "$TMPDIR/dump.tgz" "$URL";
-              mongorestore --host "$MONGO_HOST" --archive="$TMPDIR/dump.tgz" --gzip --drop;
-              echo "Restore complete";
       volumes: []
