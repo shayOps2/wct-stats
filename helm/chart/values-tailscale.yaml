@@ -8,7 +8,7 @@ backend:
 frontend:
   image:
     repository: ghcr.io/shayops2/wct-stats-frontend
-    tag: "v1.1.2"
+    tag: "v1.1.3"
 ingress:
   enabled: true
   annotations:
