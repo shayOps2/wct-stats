@@ -1,11 +1,12 @@
-from fastapi import APIRouter, HTTPException, Body, Depends, Request
-from models import Match, Round
-from crud import get_matches, get_match, add_match, delete_match, get_player, update_match as update_match_in_db
+from fastapi import APIRouter, HTTPException, Body, Depends, Request, UploadFile, File, Form
+from models import Match, Round, Player
+from crud import get_matches, get_match, add_match, delete_match, get_player, get_players, add_player, update_match as update_match_in_db
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import logging
 from routers.login import get_current_user
 from database import get_db
+import json
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -715,3 +716,196 @@ def update_round_video_urls(match: Match, new_video_url: str):
             time_part = round.video_url.split("&t=")[-1] if "&t=" in round.video_url else None
             # Update the round's video URL with the new base URL and the same time part
             round.video_url = f"{new_video_url}&t={time_part}" if time_part else new_video_url
+
+@router.post("/import_csv")
+async def import_matches_from_csv(
+    request: Request,
+    file: UploadFile = File(...),
+    match_numbers: str = Form(..., description="JSON array of match numbers to import, e.g. [30,31]"),
+    current_user: dict = Depends(get_current_user),
+    db = Depends(get_db)
+):
+    """Import matches from a CSV file.
+
+    CSV format per line: matchNumber,roundNumber,chaserName,evaderName,tagTime
+    tagTime == 20 => evasion (no tag). Otherwise tag_made with tag_time seconds.
+
+    Only match numbers listed in match_numbers are imported.
+    Teams for team matches are inferred by bipartitioning the chaser/evader graph. If only two unique players, it's 1v1.
+    """
+    if current_user["role"] != "Admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+
+    try:
+        selected_ids = json.loads(match_numbers)
+        if not isinstance(selected_ids, list) or not all(isinstance(x, int) for x in selected_ids):
+            raise ValueError
+        selected_ids_set = set(selected_ids)
+    except Exception:
+        raise HTTPException(status_code=400, detail="match_numbers must be a JSON array of integers")
+
+    content = await file.read()
+    try:
+        text = content.decode("utf-8")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Failed to read CSV file as UTF-8")
+
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    if not lines:
+        raise HTTPException(status_code=400, detail="CSV file is empty")
+
+    # Parse CSV into rows
+    rows = []
+    for ln in lines:
+        parts = [p.strip() for p in ln.split(",")]
+        if len(parts) < 5:
+            logger.warning(f"Skipping malformed CSV line: {ln}")
+            continue
+        try:
+            match_no = int(parts[0])
+            round_no = int(parts[1])
+            chaser_name = parts[2]
+            evader_name = parts[3]
+            tag_time_val = float(parts[4])
+        except Exception:
+            logger.warning(f"Skipping unparsable CSV line: {ln}")
+            continue
+        if match_no in selected_ids_set:
+            rows.append({
+                "match_no": match_no,
+                "round_no": round_no,
+                "chaser_name": chaser_name,
+                "evader_name": evader_name,
+                "tag_time": tag_time_val,
+            })
+
+    if not rows:
+        raise HTTPException(status_code=400, detail="No rows found for selected match numbers")
+
+    # Group by match number
+    by_match = {}
+    for r in rows:
+        by_match.setdefault(r["match_no"], []).append(r)
+
+    # Load players for name lookup
+    existing_players = await get_players(db)
+    name_map = {p.name: p for p in existing_players if p and p.name}
+
+    async def get_or_create_player_by_name(name: str):
+        if name in name_map:
+            return name_map[name]
+        for k, v in name_map.items():
+            if k.lower() == name.lower():
+                return v
+        new_p = Player(name=name)
+        created = await add_player(db, new_p)
+        if created:
+            name_map[created.name] = created
+        return created
+
+    results = []
+    for match_no, match_rows in by_match.items():
+        player_names = set()
+        for r in match_rows:
+            player_names.add(r["chaser_name"])  # chaser
+            player_names.add(r["evader_name"])  # evader
+
+        if len(player_names) == 2:
+            names = list(player_names)
+            p1 = await get_or_create_player_by_name(names[0])
+            p2 = await get_or_create_player_by_name(names[1])
+            if not p1 or not p2:
+                logger.error(f"Failed to resolve both players for match {match_no}")
+                continue
+            match = Match(
+                date=datetime.utcnow(),
+                match_type="1v1",
+                player1=p1,
+                player2=p2,
+                rounds=[],
+            )
+            for r in sorted(match_rows, key=lambda x: x["round_no"]):
+                chaser = p1 if r["chaser_name"] == p1.name else p2
+                evader = p1 if r["evader_name"] == p1.name else p2
+                tag_made = r["tag_time"] != 20
+                tag_time_val = None if not tag_made else float(r["tag_time"])
+                match.rounds.append(Round(chaser=chaser, evader=evader, tag_made=tag_made, tag_time=tag_time_val))
+                if not tag_made:
+                    if evader.id == p1.id:
+                        match.team1_score += 1
+                    else:
+                        match.team2_score += 1
+            saved = await add_match(db, match)
+            if saved:
+                results.append(saved)
+            continue
+
+        # TEAM: infer teams via graph bipartition
+        adjacency = {}
+        for r in match_rows:
+            a = r["chaser_name"]
+            b = r["evader_name"]
+            adjacency.setdefault(a, []).append(b)
+            adjacency.setdefault(b, []).append(a)
+
+        color = {}
+        from collections import deque
+        for name in adjacency.keys():
+            if name in color:
+                continue
+            color[name] = 0
+            q = deque([name])
+            while q:
+                u = q.popleft()
+                for v in adjacency.get(u, []):
+                    if v not in color:
+                        color[v] = 1 - color[u]
+                        q.append(v)
+                    elif color[v] == color[u]:
+                        logger.error(f"Match {match_no} graph is not bipartite; cannot infer teams")
+                        raise HTTPException(status_code=400, detail=f"Cannot infer teams for match {match_no} (non-bipartite)")
+
+        team1_names = [n for n, c in color.items() if c == 0]
+        team2_names = [n for n, c in color.items() if c == 1]
+        team1_players = []
+        team2_players = []
+        for nm in team1_names:
+            p = await get_or_create_player_by_name(nm)
+            if p:
+                team1_players.append(p)
+        for nm in team2_names:
+            p = await get_or_create_player_by_name(nm)
+            if p:
+                team2_players.append(p)
+
+        team1_name = "-".join(team1_names)
+        team2_name = "-".join(team2_names)
+
+        match = Match(
+            date=datetime.utcnow(),
+            match_type="team",
+            team1_name=team1_name,
+            team2_name=team2_name,
+            team1_players=team1_players,
+            team2_players=team2_players,
+            rounds=[],
+        )
+
+        name_to_player = {p.name: p for p in team1_players + team2_players}
+        for r in sorted(match_rows, key=lambda x: x["round_no"]):
+            chaser = name_to_player.get(r["chaser_name"]) or await get_or_create_player_by_name(r["chaser_name"])
+            evader = name_to_player.get(r["evader_name"]) or await get_or_create_player_by_name(r["evader_name"])
+            tag_made = r["tag_time"] != 20
+            tag_time_val = None if not tag_made else float(r["tag_time"])
+            match.rounds.append(Round(chaser=chaser, evader=evader, tag_made=tag_made, tag_time=tag_time_val))
+            if not tag_made:
+                if any(str(p.id) == str(evader.id) for p in team1_players):
+                    match.team1_score += 1
+                else:
+                    match.team2_score += 1
+
+        saved = await add_match(db, match)
+        if saved:
+            results.append(saved)
+
+    return {"imported": len(results), "matches": [m.model_dump() for m in results]}
