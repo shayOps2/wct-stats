@@ -3,11 +3,16 @@ resource "oci_core_instance" "k3s_server" {
   compartment_id      = var.compartment_ocid
   shape               = var.shape
 
+  # A1.Flex requires shape_config to set OCPUs and memory.
+  shape_config {
+    ocpus         = 1
+    memory_in_gbs = 6
+  }
 
   create_vnic_details {
-    subnet_id         = oci_core_subnet.k3s_subnet.id
-    assign_public_ip  = true
-    nsg_ids = [ oci_core_network_security_group.k3s_security_group.id ]
+    subnet_id        = oci_core_subnet.k3s_subnet.id
+    assign_public_ip = true
+    nsg_ids          = [ oci_core_network_security_group.k3s_security_group.id ]
   }
 
   metadata = {
@@ -32,6 +37,12 @@ resource "oci_core_instance" "k3s_agent" {
   availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
   compartment_id      = var.compartment_ocid
   shape               = var.shape
+
+  # A1.Flex requires shape_config to set OCPUs and memory.
+  shape_config {
+    ocpus         = 1
+    memory_in_gbs = 6
+  }
 
   create_vnic_details {
     subnet_id         = oci_core_subnet.k3s_subnet.id

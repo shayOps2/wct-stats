@@ -14,6 +14,8 @@ elapsed=0
 
 echo "Waiting for K3s server at $server_ip:6443 to become available..."
 
+sudo dnf install nmap-ncat -y
+
 while ! nc -z "$server_ip" 6443; do
   sleep $interval
   elapsed=$((elapsed + interval))

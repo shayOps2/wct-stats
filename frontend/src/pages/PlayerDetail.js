@@ -36,6 +36,8 @@ function PlayerDetail() {
   const [loadingPins, setLoadingPins] = useState(false);
   const [showChaserPins, setShowChaserPins] = useState(true);
   const [showEvaderPins, setShowEvaderPins] = useState(true);
+  const [tips, setTips] = useState(null);
+  const [loadingTips, setLoadingTips] = useState(false);
 
   useEffect(() => {
     fetchPlayers();
@@ -128,6 +130,38 @@ function PlayerDetail() {
       setPlayerStats(null);
     }
   }, [selectedPlayer, selectedOpponent, dateRange, matchType]);
+
+  const fetchPlayerTips = useCallback(async () => {
+    if (!selectedPlayer) return;
+    try {
+      setLoadingTips(true);
+      setTips(null);
+      let url = `${BACKEND_URL}/players/${selectedPlayer}/tips?`;
+      if (dateRange) {
+        if (dateRange[0]) {
+          const startDate = dateRange[0].toISOString();
+          url += `start_date=${startDate}&`;
+          if (dateRange[1]) {
+            const endDate = dateRange[1].toISOString();
+            url += `end_date=${endDate}&`;
+          }
+        }
+      }
+      if (matchType) {
+        url += `match_type=${matchType}&`;
+      }
+      const resp = await fetch(url, { method: 'POST' });
+      if (!resp.ok) {
+        throw new Error(`Failed to generate tips: ${resp.status}`);
+      }
+      const json = await resp.json();
+      setTips(json);
+    } catch (e) {
+      setTips({ summary: 'Failed to generate tips. Please try again later.' });
+    } finally {
+      setLoadingTips(false);
+    }
+  }, [selectedPlayer, dateRange, matchType]);
 
   // Reset player stats when filters change
   useEffect(() => {
@@ -322,6 +356,16 @@ const fetchPlayerPins = useCallback(async () => {
               Apply Filters
             </Button>
 
+            <Button
+              onClick={fetchPlayerTips}
+              disabled={!selectedPlayer}
+              loading={loadingTips}
+              style={{ marginTop: '8px' }}
+              type="default"
+            >
+              Generate Tips
+            </Button>
+
             {/* Clear filters button */}
             {(dateRange || matchType || selectedOpponent) && (
               <Button
@@ -399,6 +443,45 @@ const fetchPlayerPins = useCallback(async () => {
         
         {playerStats && selectedPlayer && !loadingPlayerStats && (
           <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
+            {tips && (
+              <Col xs={24}>
+                <Card title="AI Tips" bordered={false}>
+                  {tips.summary && <p>{tips.summary}</p>}
+                  <Row gutter={[16, 16]}>
+                    <Col xs={24} md={12}>
+                      <h4>Strengths</h4>
+                      <ul>
+                        {(tips.strengths || []).map((s, i) => (<li key={i}>{s}</li>))}
+                      </ul>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <h4>Weaknesses</h4>
+                      <ul>
+                        {(tips.weaknesses || []).map((w, i) => (<li key={i}>{w}</li>))}
+                      </ul>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <h4>Improvements</h4>
+                      <ul>
+                        {(tips.improvements || []).map((it, i) => (<li key={i}>{it}</li>))}
+                      </ul>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <h4>Drills</h4>
+                      <ul>
+                        {(tips.drills || []).map((d, i) => (<li key={i}>{d}</li>))}
+                      </ul>
+                    </Col>
+                    <Col xs={24}>
+                      <h4>Risks</h4>
+                      <ul>
+                        {(tips.risks || []).map((r, i) => (<li key={i}>{r}</li>))}
+                      </ul>
+                    </Col>
+                  </Row>
+                </Card>
+              </Col>
+            )}
             <Col xs={24}>
               <Card>
                 <h2 style={{ margin: 0, marginBottom: 8 }}>

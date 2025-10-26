@@ -17,6 +17,8 @@ backend:
       name: jwt-token
   - secretRef:
       name: oci-bucket-par
+  - secretRef:
+      name: openrouter-api-key
   image:
     repository: ghcr.io/shayops2/wct-stats-backend
     tag: "v1.0.3"

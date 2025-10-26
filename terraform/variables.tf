@@ -5,5 +5,5 @@ variable "private_key_path" {}
 variable "user_ocid" {}
 variable "fingerprint" {}
 variable "shape" {
-  default = "VM.Standard.E2.1.Micro"
+  default = "VM.Standard.A1.Flex"
 }
