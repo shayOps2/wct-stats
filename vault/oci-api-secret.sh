@@ -56,7 +56,7 @@ sleep 20
 if kubectl get validatingwebhookconfigurations | grep -q secretstore-validate ; then
   kubectl delete validatingwebhookconfiguration secretstore-validate 
 fi
-if kubectl get mutatingwebhookconfigurations | grep -q externalsecret-validate ; then
+if kubectl get validatingwebhookconfigurations | grep -q externalsecret-validate ; then
   kubectl delete validatingwebhookconfiguration externalsecret-validate
 fi
 kubectl apply -f secret-store-oci.yaml -n "$NAMESPACE"
