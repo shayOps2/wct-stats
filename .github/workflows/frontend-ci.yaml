@@ -56,9 +56,16 @@ jobs:
           username: ${{ vars.GHCR_USERNAME }}
           password: ${{ secrets.GHCR_TOKEN }} 
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and push frontend image
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v6
         with:
+          platforms: linux/amd64,linux/arm64
           build-args: |
             REACT_APP_BACKEND_URL=https://backend.cheetoh-gila.ts.net
           context: frontend
