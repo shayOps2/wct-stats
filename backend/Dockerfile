@@ -12,12 +12,11 @@ WORKDIR /app
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       ca-certificates curl gnupg wget && \
-    # Add MongoDB tools repo (Debian/Ubuntu) and install database tools
-    wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | gpg --dearmor -o /usr/share/keyrings/mongodb-archive-keyring.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/mongodb-archive-keyring.gpg] https://repo.mongodb.org/apt/debian bullseye/mongodb-org/6.0 main" \
-      > /etc/apt/sources.list.d/mongodb-org-6.0.list && \
-    apt-get update && apt-get install -y --no-install-recommends mongodb-database-tools && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+      curl -fsSL https://fastdl.mongodb.org/tools/db/mongodb-database-tools-debian11-x86_64-100.9.4.deb -o tools.deb && \
+      apt install -y ./tools.deb && \
+      rm tools.deb && \
+      apt-get clean && rm -rf /var/lib/apt/lists/*      
+
 
     
 COPY requirements.txt /app/
