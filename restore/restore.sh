@@ -10,23 +10,43 @@ set -eux
 TMPDIR=${TMPDIR:-/tmp/restore}
 mkdir -p "$TMPDIR"
 ARCHIVE="$TMPDIR/dump.tgz"
-URL=$UPLOAD_PAR_URL"mongodump-wct.gz";
+URL="${UPLOAD_PAR_URL}mongodump-wct.gz"
 
-echo "Downloading ${URL} -> ${URL}"
+echo "Downloading ${URL}"
 curl -fSL -o "$ARCHIVE" "$URL"
 
-echo "Attempting mongorestore"
-if mongorestore --host "$MONGO_HOST" --archive="$ARCHIVE" --gzip --drop; then
-  echo "Restore via --archive succeeded"
-  exit 0
-else
-  echo "Restore failed"
-  exit 1
-fi
-
+# if Mongo already has data, skip restore
 COUNT=$(mongo --host "$MONGO_HOST" --quiet --eval "db.adminCommand('listDatabases').databases.length" | tr -d '\r' || echo 0)
 echo "Detected database count: ${COUNT}"
 if [ -n "$COUNT" ] && [ "$COUNT" -gt 1 ]; then
   echo "Mongo already has data, skipping restore"
   exit 0
+fi
+
+echo "Attempting mongorestore as --archive (mongodump archive)"
+if mongorestore --host "$MONGO_HOST" --archive="$ARCHIVE" --gzip --drop; then
+  echo "Restore via --archive succeeded"
+  exit 0
+else
+  echo "--archive restore failed, will try tar extraction + mongorestore --dir"
+fi
+
+EXTRACT_DIR="$TMPDIR/extracted"
+rm -rf "$EXTRACT_DIR"
+mkdir -p "$EXTRACT_DIR"
+
+# confirm it's a tar.gz and extract
+if tar -tzf "$ARCHIVE" > /dev/null 2>&1; then
+  tar -xzf "$ARCHIVE" -C "$EXTRACT_DIR"
+  echo "Archive extracted to $EXTRACT_DIR; running mongorestore --dir"
+  if mongorestore --host "$MONGO_HOST" --dir "$EXTRACT_DIR" --drop; then
+    echo "Restore via --dir succeeded"
+    exit 0
+  else
+    echo "mongorestore --dir failed"
+    exit 1
+  fi
+else
+  echo "Downloaded file is not a tar.gz; cannot extract"
+  exit 1
 fi

@@ -4,6 +4,13 @@ import subprocess
 import logging
 import requests
 from routers.login import get_current_user
+import tempfile
+import tarfile
+import gzip
+from pathlib import Path
+from pymongo import MongoClient
+from bson import json_util
+import bson
 
 router = APIRouter()
 logger = logging.getLogger("backup")
@@ -15,18 +22,51 @@ if not UPLOAD_PAR_URL:
     logger.warning("UPLOAD_PAR_URL not set; backups will fail until configured")
 
 def create_dump(path: str):
-    cmd = [
-        "mongodump",
-        f"--uri={MONGODB_URL}",
-        f"--archive={path}",
-        "--gzip",
-    ]
-    logger.info("Running mongodump")
-    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    if proc.returncode != 0:
-        logger.error("mongodump failed: %s", proc.stderr)
-        raise RuntimeError(f"mongodump failed: {proc.stderr}")
-    logger.info("mongodump finished")
+    logger.info("Running python-based mongo BSON dump")
+    tmpdir = Path(tempfile.mkdtemp(prefix="wct-mongodump-"))
+    try:
+        client = MongoClient(MONGODB_URL)
+        db_names = [d for d in client.list_database_names() if d not in ("admin", "local", "config")]
+
+        for db_name in db_names:
+            db_dir = tmpdir / db_name
+            db_dir.mkdir(parents=True, exist_ok=True)
+            db = client[db_name]
+            for coll_name in db.list_collection_names():
+                coll = db[coll_name]
+                coll_file = db_dir / f"{coll_name}.bson"
+                # stream documents to a bson file (concatenated BSON documents)
+                with open(coll_file, "ab") as fh:
+                    cursor = coll.find({}, no_cursor_timeout=True).batch_size(1000)
+                    try:
+                        for doc in cursor:
+                            fh.write(bson.BSON.encode(doc))
+                    finally:
+                        cursor.close()
+
+                # save indexes for the collection (JSON)
+                idx_file = db_dir / f"{coll_name}.indexes.json"
+                indexes = list(coll.list_indexes())
+                with open(idx_file, "w", encoding="utf-8") as fh:
+                    fh.write(json_util.dumps(indexes))
+
+        # create compressed tar archive at the requested path
+        logger.info("Creating archive %s", path)
+        with tarfile.open(path, "w:gz") as tar:
+            tar.add(tmpdir, arcname=".")
+        logger.info("python-based mongo BSON dump finished")
+    except Exception:
+        logger.exception("create_dump failed")
+        raise
+    finally:
+        # cleanup tempdir
+        try:
+            for p in tmpdir.rglob("*"):
+                if p.is_file():
+                    p.unlink()
+            tmpdir.rmdir()
+        except Exception:
+            pass
 
 def upload_to_par(par_url: str, file_path: str):
     logger.info("Uploading backup to PAR URL: %s", par_url)
