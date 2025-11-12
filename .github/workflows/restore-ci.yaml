@@ -22,7 +22,6 @@ jobs:
         run: |
           echo "Bumping version..."
           VERSION=$(cat restore/version.txt)
-          VERSION=${VERSION:1}
 
           IFS='.' read -r major minor  <<< "$VERSION"    
           COMMIT_MSG=$(git log -1 --pretty=%B)
