@@ -38,7 +38,7 @@ jobs:
           echo "updating restore version in values.yaml..."
           RESTORE_VERSION=$(cat restore/version.txt)
           echo "Current restore version: $RESTORE_VERSION"
-          yq e -i ".mongo.restore.image.tag = \"$RESTORE_VERSION\"" helm/chart/values
+          yq e -i ".mongo.restore.image.tag = \"$RESTORE_VERSION\"" helm/chart/values.yaml
       - name: Commit version bump
         uses: mgrybyk-org/git-commit-pull-push-action@v1
         with:
