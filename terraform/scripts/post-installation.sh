@@ -9,16 +9,24 @@ if [[ -f ".env" ]]; then
   echo "Loading existing .env file..."
   source .env
 fi
+LB_IP=$(terraform output -raw load_balancer_ip)
+NODE_IP=$(terraform output -raw controlplane_private_ip)
+# if talos cluster is not set up, set it up
+# talosctl --talosconfig talosconfig config endpoint $LB_IP
+# talosctl --talosconfig talosconfig config node $NODE_IP
+# talosctl --talosconfig talosconfig bootstrap
+# talosctl --talosconfig talosconfig kubeconfig .
 
-echo "connecting to kubernetes cluster..."
-SERVER_IP=$(terraform output -raw server_public_ip)
-scp -i $PRIVATE_KEY_PATH opc@"$SERVER_IP":/etc/rancher/k3s/k3s.yaml ./kubeconfig
-sed -i "s/127.0.0.1:6443/${SERVER_IP}:6443/" kubeconfig
+
 chmod 600 kubeconfig
 export KUBECONFIG=$(pwd)/kubeconfig
 
-kubectl get nodes 
-echo "Connected to K3s cluster."
+echo "waiting for talos cluster to be ready..."
+until kubectl get nodes &> /dev/null; do
+  echo "Waiting for kubectl to connect to the cluster..."
+  sleep 5
+done
+echo "Connected to talos cluster."
 
 echo "Setting up Tailscale..."
 if helm list -A | grep -q tailscale-operator; then
@@ -53,7 +61,7 @@ cd ../vault || exit 1
 
 echo "Vault setup complete."
 
-cd ../argo-cd || exit 1
+cd ../argocd || exit 1
 echo "Setting up Argo CD..."
 ./install-argocd.sh
 echo "Argo CD setup complete."
