@@ -12,10 +12,10 @@ fi
 LB_IP=$(terraform output -raw load_balancer_ip)
 NODE_IP=$(terraform output -raw controlplane_private_ip)
 # if talos cluster is not set up, set it up
-# talosctl --talosconfig talosconfig config endpoint $LB_IP
-# talosctl --talosconfig talosconfig config node $NODE_IP
-# talosctl --talosconfig talosconfig bootstrap
-# talosctl --talosconfig talosconfig kubeconfig .
+talosctl --talosconfig talosconfig config endpoint $LB_IP
+talosctl --talosconfig talosconfig config node $NODE_IP
+talosctl --talosconfig talosconfig bootstrap
+talosctl --talosconfig talosconfig kubeconfig .
 
 
 chmod 600 kubeconfig
