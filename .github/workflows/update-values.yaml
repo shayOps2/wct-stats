@@ -6,7 +6,7 @@ concurrency:
 on:
   workflow_run:
     types: [completed]
-    workflows: ["Build And Deploy WCT Stats Frontend", "Build And Deploy WCT Stats Backend"]
+    workflows: ["Build And Deploy WCT Stats restore", "Build And Deploy WCT Stats Frontend", "Build And Deploy WCT Stats Backend"]
     branches: [main]
 
 jobs:
@@ -35,6 +35,10 @@ jobs:
           echo "Current backend version: $BACKEND_VERSION"
           yq e -i ".backend.image.tag = \"$BACKEND_VERSION\"" helm/chart/values-tailscale.yaml
 
+          echo "updating restore version in values.yaml..."
+          RESTORE_VERSION=$(cat restore/version.txt)
+          echo "Current restore version: $RESTORE_VERSION"
+          yq e -i ".mongo.restore.image.tag = \"$RESTORE_VERSION\"" helm/chart/values
       - name: Commit version bump
         uses: mgrybyk-org/git-commit-pull-push-action@v1
         with:
