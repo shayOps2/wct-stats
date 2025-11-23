@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from routers import players, matches, pins, login, backup, teams
 from database import init_db, setup_database
 import logging
