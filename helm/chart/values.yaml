@@ -13,12 +13,12 @@ backend:
     - name: MONGODB_URL
       value: mongodb://__MONGO_HOST__:27017
   envFrom:
-  - secretRef:
-      name: jwt-token
-  - secretRef:
-      name: oci-bucket-par
-  - secretRef:
-      name: openrouter-api-key
+    - secretRef:
+        name: jwt-token
+    - secretRef:
+        name: oci-bucket-par
+    - secretRef:
+        name: openrouter-api-key
   image:
     repository: ghcr.io/shayops2/wct-stats-backend
     tag: "v1.0.3"
@@ -33,26 +33,20 @@ backend:
   strategy:
     type: Recreate
   type: ClusterIP
-
-
-
 frontend:
   image:
     repository: ghcr.io/shayops2/wct-stats-frontend
     tag: "0.1"
-  imagePullSecrets: 
+  imagePullSecrets:
     - name: regcred
   imagePullPolicy: IfNotPresent
   ports:
-  - name: "8080"
-    port: 8080
-    targetPort: 80
+    - name: "8080"
+      port: 8080
+      targetPort: 80
   replicas: 1
   type: ClusterIP
-
-
 kubernetesClusterDomain: cluster.local
-
 ingress:
   enabled: true
   annotations:
@@ -60,45 +54,42 @@ ingress:
   backend:
     host: backend.example
     paths:
-    - /
+      - /
     className: traefik
   frontend:
     host: frontend.example
     paths:
-    - /
+      - /
     className: traefik
-
 mongo:
   restore:
     envFrom:
-    - secretRef:
-        name: oci-bucket-par
+      - secretRef:
+          name: oci-bucket-par
     imagePullSecrets:
       - name: regcred
     image:
       repository: ghcr.io/shayops2/wct-stats-mongo-restore
-      tag: "2.3"
+      tag: "2.4"
     imagePullPolicy: IfNotPresent
-
-
   mongo:
     livenessProbe:
       exec:
         command:
-        - mongosh
-        - --eval
-        - db.adminCommand('ping')
+          - mongosh
+          - --eval
+          - db.adminCommand('ping')
       failureThreshold: 5
       periodSeconds: 10
       timeoutSeconds: 5
     args:
-    - --bind_ip_all
+      - --bind_ip_all
     image:
       repository: mongo
       tag: "6.0"
   ports:
-  - name: "27017"
-    port: 27017
-    targetPort: 27017
+    - name: "27017"
+      port: 27017
+      targetPort: 27017
   replicas: 1
   type: ClusterIP
