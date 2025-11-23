@@ -75,8 +75,8 @@ def test_create_match(created_match):
     print(created_match)
     assert created_match["match"]["match_type"] == "1v1"
 
-def test_list_matches(client):
-    response = client.get("/matches/")
+def test_list_matches(client, auth_headers):
+    response = client.get("/matches/", headers=auth_headers)
     assert response.status_code == 200
     assert isinstance(response.json(), list)
 
@@ -116,9 +116,9 @@ def test_delete_last_round(client, auth_headers, match_with_round):
     match = response.json()
     assert len(match["rounds"]) == 0
 
-def test_get_match_by_id(client, created_match):
+def test_get_match_by_id(client, auth_headers, created_match):
     match_id = created_match["match_id"]
-    response = client.get(f"/matches/{match_id}")
+    response = client.get(f"/matches/{match_id}", headers=auth_headers)
     assert response.status_code == 200
     match = response.json()
     assert (match.get("id")) == match_id

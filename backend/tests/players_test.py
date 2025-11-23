@@ -72,14 +72,14 @@ def test_create_player_non_admin_forbidden(client, user_headers):
     assert response.status_code == 403
     assert "Admin privileges required" in response.json().get("detail", "")
 
-def test_list_players(client):
-    response = client.get("/players/")
+def test_list_players(client, admin_headers):
+    response = client.get("/players/", headers=admin_headers)
     assert response.status_code == 200
     assert isinstance(response.json(), list)
 
-def test_get_player_by_id(client, created_player):
+def test_get_player_by_id(client, admin_headers, created_player):
     player_id = created_player
-    response = client.get(f"/players/{player_id}")
+    response = client.get(f"/players/{player_id}", headers=admin_headers)
     assert response.status_code == 200
     player = response.json()
     assert player["id"] == player_id
