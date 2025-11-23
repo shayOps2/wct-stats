@@ -10,7 +10,9 @@ set -eux
 TMPDIR=${TMPDIR:-/tmp/restore}
 mkdir -p "$TMPDIR"
 ARCHIVE="$TMPDIR/dump.tgz"
-URL="${UPLOAD_PAR_URL}mongodump-wct.gz"
+# Use ENV if set, otherwise default to empty (or handle as needed)
+ENV_PATH="${ENV:-development}"
+URL="${UPLOAD_PAR_URL}${ENV_PATH}/mongodump-wct.gz"
 
 echo "Downloading ${URL}"
 curl -fSL -o "$ARCHIVE" "$URL"
