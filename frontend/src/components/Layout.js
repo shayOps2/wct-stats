@@ -1,12 +1,16 @@
-import React from 'react';
-import { Layout as AntLayout, Menu } from 'antd';
+import React, { useState } from 'react';
+import { Layout as AntLayout, Menu, Drawer, Button, Grid } from 'antd';
 import { Link, useLocation } from 'react-router-dom';
+import { MenuOutlined } from '@ant-design/icons';
 
 const { Header, Content, Footer } = AntLayout;
+const { useBreakpoint } = Grid;
 
 const Layout = ({ children }) => {
   const location = useLocation();
   const pathname = location.pathname;
+  const screens = useBreakpoint();
+  const [drawerVisible, setDrawerVisible] = useState(false);
 
   // Get user from localStorage
   const userStr = localStorage.getItem("user");
@@ -25,44 +29,57 @@ const Layout = ({ children }) => {
     return '1';
   };
 
+  const menuItems = [
+    { key: '1', label: <Link to="/">Home</Link> },
+    { key: '2', label: <Link to="/dashboard">All Players</Link> },
+    { key: '3', label: <Link to="/dashboard/players">Player Details</Link> },
+    { key: '4', label: <Link to="/dashboard/quadPins">Tag Map</Link> },
+    ...(user && user.role === "Admin" ? [
+      { key: '5', label: <Link to="/players">Manage Players</Link> },
+      { key: '6', label: <Link to="/matches">Manage Matches</Link> }
+    ] : [])
+  ];
+
+  const showDrawer = () => setDrawerVisible(true);
+  const onClose = () => setDrawerVisible(false);
+
   return (
     <AntLayout style={{ minHeight: '100vh' }}>
-      <Header style={{ position: 'fixed', zIndex: 1, width: '100%', background: '#fff', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.09)' }}>
-        <div className="logo" style={{ float: 'left', marginRight: '20px' }}>
+      <Header style={{ position: 'fixed', zIndex: 1, width: '100%', background: '#fff', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.09)', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="logo">
           <h2 style={{ margin: 0, lineHeight: '64px' }}>WCT Stats</h2>
         </div>
-        <Menu
-          theme="light"
-          mode="horizontal"
-          selectedKeys={[getSelectedKey()]}
-          style={{ lineHeight: '64px' }}
-        >
-          <Menu.Item key="1">
-            <Link to="/">Home</Link>
-          </Menu.Item>
-          <Menu.Item key="2">
-            <Link to="/dashboard">All Players</Link>
-          </Menu.Item>
-          <Menu.Item key="3">
-            <Link to="/dashboard/players">Player Details</Link>
-          </Menu.Item>
-          <Menu.Item key="4">
-            <Link to="/dashboard/quadPins">Tag Map</Link>
-          </Menu.Item>
-          {/* Admin-only tabs */}
-          {user && user.role === "Admin" && (
-            <>
-              <Menu.Item key="5">
-                <Link to="/players">Manage Players</Link>
-              </Menu.Item>
-              <Menu.Item key="6">
-                <Link to="/matches">Manage Matches</Link>
-              </Menu.Item>
-            </>
-          )}
-        </Menu>
+
+        {screens.md ? (
+          <Menu
+            theme="light"
+            mode="horizontal"
+            selectedKeys={[getSelectedKey()]}
+            items={menuItems}
+            style={{ lineHeight: '64px', borderBottom: 'none', flex: 1, justifyContent: 'flex-end' }}
+          />
+        ) : (
+          <>
+            <Button type="text" icon={<MenuOutlined />} onClick={showDrawer} style={{ fontSize: '18px' }} />
+            <Drawer
+              title="Menu"
+              placement="right"
+              onClose={onClose}
+              open={drawerVisible}
+              bodyStyle={{ padding: 0 }}
+            >
+              <Menu
+                mode="vertical"
+                selectedKeys={[getSelectedKey()]}
+                items={menuItems}
+                onClick={onClose}
+                style={{ borderRight: 'none' }}
+              />
+            </Drawer>
+          </>
+        )}
       </Header>
-      <Content style={{ padding: '0 50px', marginTop: 64 }}>
+      <Content style={{ padding: screens.md ? '0 50px' : '0 16px', marginTop: 64 }}>
         <div style={{ padding: '24px 0', minHeight: 280 }}>
           {children}
         </div>

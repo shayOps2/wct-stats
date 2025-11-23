@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Form, File, UploadFile, Response, Depends, Request
 from models import Player
-from crud import get_players, get_player, add_player, delete_player
+from crud import get_players, get_player, add_player, delete_player, get_user_by_username
 from pydantic import ValidationError
 from typing import Optional
 from fastapi import Body
@@ -23,19 +23,33 @@ router = APIRouter()
 @router.get("/")
 async def list_players(
     request: Request,
-    db = Depends(get_db)
+    db = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
-    return await get_players(db)
+    query = {}
+    if current_user["role"] != "Admin":
+        if current_user["team_id"]:
+            query["team_id"] = current_user["team_id"]
+        else:
+            return []
+            
+    return await get_players(db, query)
 
 @router.get("/{player_id}")
 async def get_player_by_id(
     request: Request,
     player_id: str,
-    db = Depends(get_db)
+    db = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     player = await get_player(db, player_id)
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
+        
+    if current_user["role"] != "Admin":
+        if not current_user["team_id"] or player.team_id != current_user["team_id"]:
+            raise HTTPException(status_code=403, detail="Access denied")
+            
     return player
 
 @router.get("/{player_id}/image")
@@ -66,6 +80,7 @@ async def get_player_image(
 async def create_player(
     request: Request,
     name: str = Form(...),
+    team_id: Optional[str] = Form(None),
     image: UploadFile = File(None),
     current_user: dict = Depends(get_current_user),
     db = Depends(get_db)
@@ -75,7 +90,7 @@ async def create_player(
         
     # Create player first
     try:
-        new_player = Player(name=name)
+        new_player = Player(name=name, team_id=team_id)
     except ValidationError as exc:
         logger.error(f"Validation error creating player: {exc}")
         raise HTTPException(status_code=422, detail=f"failed to create player with name {name} {str(exc)}")    
@@ -143,13 +158,18 @@ async def get_player_statistics(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     match_type: Optional[str] = None,
-    db = Depends(get_db)
+    db = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """Get player statistics with optional filters"""
     # Verify player exists
     player = await get_player(db, player_id)
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
+        
+    if current_user["role"] != "Admin":
+        if not current_user["team_id"] or player.team_id != current_user["team_id"]:
+            raise HTTPException(status_code=403, detail="Access denied")
     
     # Calculate stats
     stats = await calculate_player_stats(

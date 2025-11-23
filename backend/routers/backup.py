@@ -37,7 +37,12 @@ def create_dump(path: str):
                 coll_file = db_dir / f"{coll_name}.bson"
                 # stream documents to a bson file (concatenated BSON documents)
                 with open(coll_file, "ab") as fh:
-                    cursor = coll.find({}, no_cursor_timeout=True).batch_size(1000)
+                    # Filter out admin user from users collection
+                    query = {}
+                    if coll_name == "users":
+                        query = {"username": {"$ne": "admin"}}
+                        
+                    cursor = coll.find(query, no_cursor_timeout=True).batch_size(1000)
                     try:
                         for doc in cursor:
                             fh.write(bson.BSON.encode(doc))
@@ -73,7 +78,8 @@ def upload_to_par(par_url: str, file_path: str):
     headers = {"Content-Type": "application/gzip"}
     # send the actual file bytes, not the path
     with open(file_path, "rb") as fh:
-        object_name = os.path.basename(file_path)
+        env = os.getenv("ENV", "development")
+        object_name = f"{env}/{os.path.basename(file_path)}"
         url = f"{par_url}{object_name}"        
         resp = requests.put(url, data=fh, headers=headers, timeout=120)
     if resp.status_code not in (200, 201, 204):

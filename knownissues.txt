@@ -1,8 +1,0 @@
-when deleting round evader is empty (fixed after refresh)
-  Warning  InvalidProviderConfig  8s (x5 over 2m8s)  secret-store  Get "https://kms.il-jerusalem-1.oraclecloud.com/20180608/vaults/ocid1.vault.oc1.il-jerusalem-1.hzunujpaaagl4.abwxiljr4z22hbobzrhctnllvz7nbghvij7cbqe76wsx3kgwf5o3qjmgrwdq": dial tcp: lookup kms.il-jerusalem-1.oraclecloud.com: i/o timeout
-works when changing coredns, then doesnt work after some time (unknown time)
-
-
-frontend exec /docker-entrypoint.sh: exec format error
-backend exec /bin/sh: exec format error
-need to build image with multi architecture

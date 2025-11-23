@@ -7,6 +7,7 @@ class Player(BaseModel):
     id: Optional[str] = None
     name: str = Field(..., min_length=1, max_length=50, pattern=r"^[a-zA-Z]+( [a-zA-Z]+)*$")
     image_id: Optional[str] = None  # GridFS file ID
+    team_id: Optional[str] = None
 
 class Round(BaseModel):
     chaser: Player
@@ -57,4 +58,5 @@ class User(BaseModel):
     username: str = Field(..., min_length=3, max_length=32, pattern=r"^[a-zA-Z0-9_]+$")
     hashed_password: str
     role: UserRole = UserRole.user
+    team_id: Optional[str] = None
     created_at: Optional[datetime] = None

@@ -26,6 +26,8 @@ spec:
           env:
             - name: MONGO_HOST
               value: "{{ printf "%s-mongo" (include "chart.fullname" .) }}"
+            - name: ENV
+              value: {{ .Values.backend.env | first | get "value" | default "production" | quote }}
           envFrom:
 {{- toYaml .Values.mongo.restore.envFrom | nindent 12 }}
       volumes: []

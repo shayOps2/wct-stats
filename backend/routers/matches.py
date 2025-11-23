@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Body, Depends, Request, UploadFile, File, Form
 from models import Match, Round, Player
-from crud import get_matches, get_match, add_match, delete_match, get_player, get_players, add_player, update_match as update_match_in_db
+from crud import get_matches, get_match, add_match, delete_match, get_player, get_players, add_player, update_match as update_match_in_db, get_user_by_username
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 import logging
@@ -63,19 +63,52 @@ def calculate_sudden_death_winner(match, sd_round1, sd_round2):
 @router.get("/")
 async def list_matches(
     request: Request,
-    db = Depends(get_db)
+    db = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
-    return await get_matches(db)
+    query = {}
+    if current_user["role"] != "Admin":
+        if current_user["team_id"]:
+            query = {
+                "$or": [
+                    {"team1_players.team_id": current_user["team_id"]},
+                    {"team2_players.team_id": current_user["team_id"]},
+                    {"player1.team_id": current_user["team_id"]},
+                    {"player2.team_id": current_user["team_id"]}
+                ]
+            }
+        else:
+            return []
+            
+    return await get_matches(db, query)
 
 @router.get("/{match_id}")
 async def get_match_by_id(
     request: Request,
     match_id: str,
-    db = Depends(get_db)
+    db = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     match = await get_match(db, match_id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
+        
+    if current_user["role"] != "Admin":
+        if not current_user["team_id"]:
+            raise HTTPException(status_code=403, detail="Access denied")
+            
+        # Check if match involves user's team
+        involved = False
+        if match.match_type == "team":
+            if any(p.team_id == current_user["team_id"] for p in (match.team1_players or [])): involved = True
+            if any(p.team_id == current_user["team_id"] for p in (match.team2_players or [])): involved = True
+        else:
+            if match.player1 and match.player1.team_id == current_user["team_id"]: involved = True
+            if match.player2 and match.player2.team_id == current_user["team_id"]: involved = True
+            
+        if not involved:
+            raise HTTPException(status_code=403, detail="Access denied")
+            
     return match
 
 @router.post("/")

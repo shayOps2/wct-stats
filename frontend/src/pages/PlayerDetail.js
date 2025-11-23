@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { 
-  Card, 
-  Row, 
-  Col, 
-  Spin, 
-  Alert, 
-  Select, 
-  DatePicker, 
-  Button, 
-  Divider, 
+import {
+  Card,
+  Row,
+  Col,
+  Spin,
+  Alert,
+  Select,
+  DatePicker,
+  Button,
+  Divider,
   Statistic,
   Tooltip,
   Empty,
@@ -48,7 +48,16 @@ function PlayerDetail() {
       setLoading(true);
       setError(null);
       // Fetch all players
-      const response = await fetch(`${BACKEND_URL}/players/`);
+      const token = localStorage.getItem("token");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const response = await fetch(`${BACKEND_URL}/players/`, { headers });
+
+      if (response.status === 401) {
+        setError("Unauthorized. Please log in.");
+        setLoading(false);
+        return;
+      }
+
       const playerList = await response.json();
       setPlayers(playerList);
       setLoading(false);
@@ -65,21 +74,21 @@ function PlayerDetail() {
     try {
       setLoadingPlayerStats(true);
       setStatsError(null);
-      
+
       let url;
       let statsResponse;
-      
+
       // If opponent is selected, use the head-to-head endpoint
       if (selectedOpponent) {
         url = `${BACKEND_URL}/players/${selectedPlayer}/versus/${selectedOpponent}?`;
-        
+
         // Add date filters if provided
         if (dateRange) {
           // If dateRange has at least a start date
           if (dateRange[0]) {
             const startDate = dateRange[0].toISOString();
             url += `start_date=${startDate}&`;
-            
+
             // If end date is also provided, use it; otherwise default to today
             if (dateRange[1]) {
               const endDate = dateRange[1].toISOString();
@@ -87,19 +96,21 @@ function PlayerDetail() {
             }
           }
         }
-        
-        statsResponse = await fetch(url);
+
+        const token = localStorage.getItem("token");
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        statsResponse = await fetch(url, { headers });
       } else {
         // Otherwise use the regular stats endpoint
         url = `${BACKEND_URL}/players/${selectedPlayer}/stats?`;
-        
+
         // Add date filters if provided
         if (dateRange) {
           // If dateRange has at least a start date
           if (dateRange[0]) {
             const startDate = dateRange[0].toISOString();
             url += `start_date=${startDate}&`;
-            
+
             // If end date is also provided, use it; otherwise default to today
             if (dateRange[1]) {
               const endDate = dateRange[1].toISOString();
@@ -107,19 +118,21 @@ function PlayerDetail() {
             }
           }
         }
-        
+
         // Add match type filter if provided
         if (matchType) {
           url += `match_type=${matchType}&`;
         }
-        
-        statsResponse = await fetch(url);
+
+        const token = localStorage.getItem("token");
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        statsResponse = await fetch(url, { headers });
       }
-      
+
       if (!statsResponse.ok) {
         throw new Error(`Error fetching stats: ${statsResponse.status} ${statsResponse.statusText}`);
       }
-      
+
       const stats = await statsResponse.json();
       setPlayerStats(stats);
       setLoadingPlayerStats(false);
@@ -150,7 +163,9 @@ function PlayerDetail() {
       if (matchType) {
         url += `match_type=${matchType}&`;
       }
-      const resp = await fetch(url, { method: 'POST' });
+      const token = localStorage.getItem("token");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const resp = await fetch(url, { method: 'POST', headers });
       if (!resp.ok) {
         throw new Error(`Failed to generate tips: ${resp.status}`);
       }
@@ -169,7 +184,7 @@ function PlayerDetail() {
       fetchPlayerStats();
     }
   }, [selectedPlayer, fetchPlayerStats]);
-  
+
   // Clear match type when opponent is selected
   useEffect(() => {
     if (selectedOpponent) {
@@ -177,63 +192,65 @@ function PlayerDetail() {
     }
   }, [selectedOpponent]);
 
-const fetchPlayerPins = useCallback(async () => {
-  if (!selectedPlayer) return;
+  const fetchPlayerPins = useCallback(async () => {
+    if (!selectedPlayer) return;
 
-  try {
-    setLoadingPins(true);
-    
-    // Build query parameters for the enriched pins endpoint
-    const params = new URLSearchParams();
-    params.append('player_id', selectedPlayer);
+    try {
+      setLoadingPins(true);
 
-    // Add optional filters if they exist
-    if (selectedOpponent) {
-      params.append('opponent_id', selectedOpponent);
-    }
-    if (matchType) {
-      params.append('match_type', matchType);
-    }
-    if (dateRange && dateRange[0]) {
-      params.append('start_date', dateRange[0].toISOString());
-    }
-    if (dateRange && dateRange[1]) {
-      params.append('end_date', dateRange[1].toISOString());
-    }
+      // Build query parameters for the enriched pins endpoint
+      const params = new URLSearchParams();
+      params.append('player_id', selectedPlayer);
 
-    const response = await fetch(`${BACKEND_URL}/pins/enriched?${params.toString()}`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch pins');
+      // Add optional filters if they exist
+      if (selectedOpponent) {
+        params.append('opponent_id', selectedOpponent);
+      }
+      if (matchType) {
+        params.append('match_type', matchType);
+      }
+      if (dateRange && dateRange[0]) {
+        params.append('start_date', dateRange[0].toISOString());
+      }
+      if (dateRange && dateRange[1]) {
+        params.append('end_date', dateRange[1].toISOString());
+      }
+
+      const token = localStorage.getItem("token");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const response = await fetch(`${BACKEND_URL}/pins/enriched?${params.toString()}`, { headers });
+      if (!response.ok) {
+        throw new Error('Failed to fetch pins');
+      }
+
+      const enrichedPins = await response.json();
+
+      // Update the transformation in fetchPlayerPins function:
+
+      const transformedPins = enrichedPins.map(pin => ({
+        ...pin,
+        // Map chaser_id and evader_id from the backend response
+        chaser_id: players.find(p => p.name === pin.matchDetails.chaser)?.id,
+        evader_id: players.find(p => p.name === pin.matchDetails.evader)?.id,
+        matchDetails: {
+          ...pin.matchDetails,
+          playerRole: pin.matchDetails.chaser === players.find(p => p.id === selectedPlayer)?.name
+            ? 'chaser'
+            : 'evader',
+          opponent: pin.matchDetails.chaser === players.find(p => p.id === selectedPlayer)?.name
+            ? pin.matchDetails.evader
+            : pin.matchDetails.chaser,
+          type: pin.matchDetails.type || 'Unknown'
+        }
+      }));
+
+      setPlayerPins(transformedPins);
+    } catch (err) {
+      console.error('Error fetching pins:', err);
+    } finally {
+      setLoadingPins(false);
     }
-
-    const enrichedPins = await response.json();
-    
-  // Update the transformation in fetchPlayerPins function:
-
-  const transformedPins = enrichedPins.map(pin => ({
-    ...pin,
-    // Map chaser_id and evader_id from the backend response
-    chaser_id: players.find(p => p.name === pin.matchDetails.chaser)?.id,
-    evader_id: players.find(p => p.name === pin.matchDetails.evader)?.id,
-    matchDetails: {
-      ...pin.matchDetails,
-      playerRole: pin.matchDetails.chaser === players.find(p => p.id === selectedPlayer)?.name 
-        ? 'chaser' 
-        : 'evader',
-      opponent: pin.matchDetails.chaser === players.find(p => p.id === selectedPlayer)?.name
-        ? pin.matchDetails.evader
-        : pin.matchDetails.chaser,
-      type: pin.matchDetails.type || 'Unknown'
-    }
-  }));
-
-    setPlayerPins(transformedPins);
-  } catch (err) {
-    console.error('Error fetching pins:', err);
-  } finally {
-    setLoadingPins(false);
-  }
-}, [selectedPlayer, selectedOpponent, matchType, dateRange]);
+  }, [selectedPlayer, selectedOpponent, matchType, dateRange]);
 
   // Fetch pins when a player is selected
   useEffect(() => {
@@ -250,7 +267,7 @@ const fetchPlayerPins = useCallback(async () => {
       // Filter by role toggles
       if (!showChaserPins && pin.chaser_id === selectedPlayer) return false;
       if (!showEvaderPins && pin.evader_id === selectedPlayer) return false;
-  
+
       return true;
     });
   }, [playerPins, showChaserPins, showEvaderPins, selectedPlayer]);
@@ -274,7 +291,7 @@ const fetchPlayerPins = useCallback(async () => {
   return (
     <div style={{ padding: 24 }}>
       <h2>Player Details</h2>
-      
+
       <Card bordered={false}>
         <Row gutter={[16, 16]} align="middle">
           <Col xs={24} sm={6}>
@@ -289,7 +306,7 @@ const fetchPlayerPins = useCallback(async () => {
               ))}
             </Select>
           </Col>
-          
+
           <Col xs={24} sm={6}>
             <Select
               style={{ width: '100%' }}
@@ -306,7 +323,7 @@ const fetchPlayerPins = useCallback(async () => {
               }
             </Select>
           </Col>
-          
+
           <Col xs={24} sm={6}>
             <Select
               style={{ width: '100%' }}
@@ -319,9 +336,9 @@ const fetchPlayerPins = useCallback(async () => {
               <Option value="team">Team</Option>
             </Select>
           </Col>
-          
+
           <Col xs={24} sm={6}>
-            <RangePicker 
+            <RangePicker
               style={{ width: '100%' }}
               onChange={value => {
                 // Value will be null when user clears the picker
@@ -329,25 +346,25 @@ const fetchPlayerPins = useCallback(async () => {
                   setDateRange(null);
                   return;
                 }
-                
+
                 // If both dates are set or none, use value directly
                 if ((value[0] && value[1]) || (!value[0] && !value[1])) {
                   setDateRange(value);
-                } 
+                }
                 // If only one date is set, treat it as the start date
                 else if (value[0] && !value[1]) {
                   setDateRange([value[0], null]);
                 }
               }}
-              allowEmpty={[false, true]} 
+              allowEmpty={[false, true]}
               placeholder={['Start Date', 'End Date (optional)']}
               disabled={!selectedPlayer}
             />
           </Col>
-          
+
           <Col xs={24}>
-            <Button 
-              type="primary" 
+            <Button
+              type="primary"
               onClick={fetchPlayerStats}
               disabled={!selectedPlayer}
               loading={loadingPlayerStats}
@@ -384,7 +401,7 @@ const fetchPlayerPins = useCallback(async () => {
               </Button>
             )}
           </Col>
-          
+
           {/* Show active filters summary */}
           {selectedPlayer && (dateRange || matchType || selectedOpponent) && (
             <Col xs={24}>
@@ -408,31 +425,31 @@ const fetchPlayerPins = useCallback(async () => {
             </Col>
           )}
         </Row>
-        
+
         {!selectedPlayer && (
           <Row style={{ marginTop: 24 }}>
             <Col xs={24} style={{ textAlign: 'center' }}>
-              <Alert 
-                message="Select a player to view their statistics" 
-                type="info" 
-                showIcon 
+              <Alert
+                message="Select a player to view their statistics"
+                type="info"
+                showIcon
               />
             </Col>
           </Row>
         )}
-        
+
         {statsError && (
           <Row style={{ marginTop: 24 }}>
             <Col xs={24} style={{ textAlign: 'center' }}>
-              <Alert 
+              <Alert
                 message={statsError}
-                type="error" 
-                showIcon 
+                type="error"
+                showIcon
               />
             </Col>
           </Row>
         )}
-        
+
         {loadingPlayerStats && (
           <Row style={{ marginTop: 24 }}>
             <Col xs={24} style={{ textAlign: 'center' }}>
@@ -440,7 +457,7 @@ const fetchPlayerPins = useCallback(async () => {
             </Col>
           </Row>
         )}
-        
+
         {playerStats && selectedPlayer && !loadingPlayerStats && (
           <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
             {tips && (
@@ -499,68 +516,68 @@ const fetchPlayerPins = useCallback(async () => {
                 )}
               </Card>
             </Col>
-            
+
             {/* Match Statistics Card */}
             <Col xs={24}>
               <Card title="Match Statistics" bordered={false}>
                 <Row gutter={[16, 16]}>
                   <Col xs={8}>
-                    <Statistic 
-                      title="Matches Played" 
-                      value={playerStats.overall.matches_played} 
+                    <Statistic
+                      title="Matches Played"
+                      value={playerStats.overall.matches_played}
                       valueStyle={{ color: '#1890ff' }}
                     />
                   </Col>
                   <Col xs={8}>
-                    <Statistic 
-                      title="Matches Won" 
-                      value={playerStats.overall.matches_won} 
+                    <Statistic
+                      title="Matches Won"
+                      value={playerStats.overall.matches_won}
                       valueStyle={{ color: '#3f8600' }}
                     />
                   </Col>
                   <Col xs={8}>
-                    <Statistic 
-                      title="Win Percentage" 
-                      value={playerStats.overall.win_percentage} 
-                      suffix="%" 
-                      valueStyle={{ 
-                        color: playerStats.overall.win_percentage > 50 ? '#3f8600' : 
-                               playerStats.overall.win_percentage === 0 ? '#cf1322' : '#faad14'
+                    <Statistic
+                      title="Win Percentage"
+                      value={playerStats.overall.win_percentage}
+                      suffix="%"
+                      valueStyle={{
+                        color: playerStats.overall.win_percentage > 50 ? '#3f8600' :
+                          playerStats.overall.win_percentage === 0 ? '#cf1322' : '#faad14'
                       }}
                     />
                   </Col>
                 </Row>
               </Card>
             </Col>
-            
+
             <Col xs={24} md={12}>
               <Card title="Offense (as Evader)" bordered={false}>
                 <Row gutter={[16, 16]}>
                   <Col span={12}>
-                    <Statistic 
-                      title="Total Evasion Attempts" 
-                      value={playerStats.offense.total_evasion_attempts} 
+                    <Statistic
+                      title="Total Evasion Attempts"
+                      value={playerStats.offense.total_evasion_attempts}
                     />
                   </Col>
                   <Col span={12}>
-                    <Statistic 
-                      title="Successful Evasions" 
-                      value={playerStats.offense.successful_evasions} 
+                    <Statistic
+                      title="Successful Evasions"
+                      value={playerStats.offense.successful_evasions}
                     />
                   </Col>
                   <Col span={12}>
-                    <Statistic 
-                      title="Success Rate" 
-                      value={playerStats.offense.evasion_success_rate} 
-                      suffix="%" 
+                    <Statistic
+                      title="Success Rate"
+                      value={playerStats.offense.evasion_success_rate}
+                      suffix="%"
                       valueStyle={{ color: playerStats.offense.evasion_success_rate > 50 ? '#3f8600' : '#cf1322' }}
                     />
                   </Col>
                   <Col span={12}>
-                    <Statistic 
-                      title="Average Evasion Time" 
-                      value={playerStats.offense.average_evasion_time} 
-                      suffix="s" 
+                    <Statistic
+                      title="Average Evasion Time"
+                      value={playerStats.offense.average_evasion_time}
+                      suffix="s"
                     />
                   </Col>
                 </Row>
@@ -597,30 +614,30 @@ const fetchPlayerPins = useCallback(async () => {
               <Card title="Defense (as Chaser)" bordered={false}>
                 <Row gutter={[16, 16]}>
                   <Col span={12}>
-                    <Statistic 
-                      title="Total Chase Attempts" 
-                      value={playerStats.defense.total_chase_attempts} 
+                    <Statistic
+                      title="Total Chase Attempts"
+                      value={playerStats.defense.total_chase_attempts}
                     />
                   </Col>
                   <Col span={12}>
-                    <Statistic 
-                      title="Successful Tags" 
-                      value={playerStats.defense.successful_tags} 
+                    <Statistic
+                      title="Successful Tags"
+                      value={playerStats.defense.successful_tags}
                     />
                   </Col>
                   <Col span={12}>
-                    <Statistic 
-                      title="Success Rate" 
-                      value={playerStats.defense.tagging_success_rate} 
-                      suffix="%" 
+                    <Statistic
+                      title="Success Rate"
+                      value={playerStats.defense.tagging_success_rate}
+                      suffix="%"
                       valueStyle={{ color: playerStats.defense.tagging_success_rate > 50 ? '#3f8600' : '#cf1322' }}
                     />
                   </Col>
                   <Col span={12}>
-                    <Statistic 
-                      title="Average Tag Time" 
-                      value={playerStats.defense.average_tag_time} 
-                      suffix="s" 
+                    <Statistic
+                      title="Average Tag Time"
+                      value={playerStats.defense.average_tag_time}
+                      suffix="s"
                     />
                   </Col>
                 </Row>
@@ -652,21 +669,21 @@ const fetchPlayerPins = useCallback(async () => {
                 </Collapse>
               </Card>
             </Col>
-            
+
             <Col xs={24}>
               <Card bordered={false}>
-                <Statistic 
-                  title="Total Rounds" 
-                  value={playerStats.overall.total_rounds} 
+                <Statistic
+                  title="Total Rounds"
+                  value={playerStats.overall.total_rounds}
                   valueStyle={{ fontSize: '24px' }}
                 />
               </Card>
             </Col>
-            
+
             {/* Quad Map with Player Pins */}
             <Col xs={24}>
-              <Card 
-                title={`Tag Locations for ${players.find(p => p.id === selectedPlayer)?.name}`} 
+              <Card
+                title={`Tag Locations for ${players.find(p => p.id === selectedPlayer)?.name}`}
                 bordered={false}
                 style={{ marginBottom: 24 }}
               >
@@ -704,16 +721,16 @@ const fetchPlayerPins = useCallback(async () => {
                     </div>
 
                     <div style={{ position: 'relative', maxWidth: '800px', margin: '0 auto' }}>
-                      <img 
-                        src="/images/quad.jpg" 
-                        alt="Quad Map" 
+                      <img
+                        src="/images/quad.jpg"
+                        alt="Quad Map"
                         style={{ width: '100%', height: 'auto', border: '1px solid #ccc' }}
                       />
-                      
+
                       {/* Map pins */}
                       {getFilteredPins().map((pin, index) => (
-                        <Tooltip 
-                          key={index} 
+                        <Tooltip
+                          key={index}
                           title={
                             <div>
                               <div>Date: {pin.matchDetails.date}</div>
@@ -725,14 +742,14 @@ const fetchPlayerPins = useCallback(async () => {
                                     Watch Video
                                   </a>
                                 </div>
-                              )}                              
+                              )}
                               <div style={{ fontSize: '0.8em', color: '#888' }}>
                                 Position: ({pin.location.x.toFixed(1)}%, {pin.location.y.toFixed(1)}%)
                               </div>
                             </div>
                           }
                         >
-                          <div 
+                          <div
                             style={{
                               position: 'absolute',
                               left: `${pin.location.x}%`,
@@ -752,7 +769,7 @@ const fetchPlayerPins = useCallback(async () => {
                         </Tooltip>
                       ))}
                     </div>
-                    
+
                     <div style={{ marginTop: 16, textAlign: 'center' }}>
                       <div>Total Tags Displayed: {getFilteredPins().length}</div>
                       {getFilteredPins().length !== playerPins.length && (

@@ -28,9 +28,24 @@ function App() {
         <Routes>
           <Route path="/" element={<Home setUser={setUser} />} />
           <Route path="/login" element={<Login setUser={setUser} />} />
-          <Route path="/dashboard" element={<PlayerStats />} />
-          <Route path="/dashboard/players" element={<PlayerDetail />} />
-          <Route path="/dashboard/quadPins" element={<QuadPins />} />
+          <Route
+            path="/dashboard"
+            element={
+              user ? <PlayerStats /> : <Navigate to="/login" replace />
+            }
+          />
+          <Route
+            path="/dashboard/players"
+            element={
+              user ? <PlayerDetail /> : <Navigate to="/login" replace />
+            }
+          />
+          <Route
+            path="/dashboard/quadPins"
+            element={
+              user ? <QuadPins /> : <Navigate to="/login" replace />
+            }
+          />
           {/* Management routes */}
           <Route
             path="/players"

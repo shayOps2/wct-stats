@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Alert } from "antd";
 import { BACKEND_URL } from "../config";
 import { extractTimeFromVideoURL, formatDateForInput, formatDateForDisplay, formatDateForAPI } from "../utils/matchUtils";
 import MatchCard from "../components/MatchCard";
@@ -140,7 +141,9 @@ function Matches() {
     if (selectedMatch && selectedMatch.id) {
       const fetchPinsForMatch = async () => {
         try {
-          const response = await fetch(`${BACKEND_URL}/pins/?match_id=${selectedMatch.id}`);
+          const token = localStorage.getItem("token");
+          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+          const response = await fetch(`${BACKEND_URL}/pins/?match_id=${selectedMatch.id}`, { headers });
           if (response.ok) {
             const pins = await response.json();
             setCurrentMatchPins(pins);
@@ -160,15 +163,23 @@ function Matches() {
   }, [selectedMatch]);
 
   const fetchMatches = async () => {
-    const response = await fetch(`${BACKEND_URL}/matches/`);
-    const data = await response.json();
-    setMatches(data);
+    const token = localStorage.getItem("token");
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const response = await fetch(`${BACKEND_URL}/matches/`, { headers });
+    if (response.ok) {
+      const data = await response.json();
+      setMatches(data);
+    }
   };
 
   const fetchPlayers = async () => {
-    const response = await fetch(`${BACKEND_URL}/players/`);
-    const data = await response.json();
-    setPlayers(data);
+    const token = localStorage.getItem("token");
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const response = await fetch(`${BACKEND_URL}/players/`, { headers });
+    if (response.ok) {
+      const data = await response.json();
+      setPlayers(data);
+    }
   };
 
   const generateTeamName = (playerIds) => {
@@ -182,6 +193,12 @@ function Matches() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const isProd = process.env.NODE_ENV === 'production';
+    if (isProd) {
+      if (!window.confirm("You are in PRODUCTION. Are you sure you want to save this match?")) {
+        return;
+      }
+    }
     const token = localStorage.getItem("token");
     if (!token) {
       console.error("No token found in localStorage");
@@ -194,22 +211,22 @@ function Matches() {
       video_url: formData.video_url,
       ...(matchType === "team"
         ? {
-            team1_name: formData.team1_name || generateTeamName(formData.team1_player_ids),
-            team2_name: formData.team2_name || generateTeamName(formData.team2_player_ids),
-            team1_player_ids: formData.team1_player_ids,
-            team2_player_ids: formData.team2_player_ids,
-          }
+          team1_name: formData.team1_name || generateTeamName(formData.team1_player_ids),
+          team2_name: formData.team2_name || generateTeamName(formData.team2_player_ids),
+          team1_player_ids: formData.team1_player_ids,
+          team2_player_ids: formData.team2_player_ids,
+        }
         : {
-            player1_id: formData.player1_id,
-            player2_id: formData.player2_id,
-          }),
+          player1_id: formData.player1_id,
+          player2_id: formData.player2_id,
+        }),
     };
 
     const response = await fetch(`${BACKEND_URL}/matches/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}), 
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(submissionData),
     });
@@ -318,7 +335,7 @@ function Matches() {
 
     const roundCount = matchToDelete.rounds.length;
     const matchType = matchToDelete.match_type;
-    const participants = matchType === "team" 
+    const participants = matchType === "team"
       ? `${matchToDelete.team1_name} vs ${matchToDelete.team2_name}`
       : `${matchToDelete.player1.name} vs ${matchToDelete.player2.name}`;
 
@@ -368,14 +385,20 @@ function Matches() {
           {backupRunning ? "Starting..." : "Trigger Backup"}
         </button>
       </div>
-      
+
+      {process.env.NODE_ENV === 'production' && (
+        <div style={{ marginBottom: 16 }}>
+          <Alert message="Production Environment - Proceed with Caution" type="warning" showIcon />
+        </div>
+      )}
+
       {/* Match Creation Form */}
       <form onSubmit={handleSubmit} style={{ marginBottom: 24, padding: 16, border: "1px solid #ccc", borderRadius: 8 }}>
         <div style={{ marginBottom: 16 }}>
           <label style={{ marginRight: 16 }}>
             Match Type:
-            <select 
-              value={matchType} 
+            <select
+              value={matchType}
               onChange={(e) => {
                 setMatchType(e.target.value);
                 // Reset form when changing match type
@@ -396,7 +419,7 @@ function Matches() {
               <option value="team">Team</option>
             </select>
           </label>
-          
+
           <label style={{ marginRight: 16 }}>
             Date:
             <input
@@ -428,8 +451,8 @@ function Matches() {
               {/* Team 1 */}
               <div style={{ flex: 1, padding: 16, border: '1px solid #ddd', borderRadius: 8 }}>
                 <div style={{ marginBottom: 8 }}>
-        <input
-          type="text"
+                  <input
+                    type="text"
                     placeholder="Team 1 Name"
                     value={formData.team1_name}
                     onChange={(e) => setFormData({ ...formData, team1_name: e.target.value })}
@@ -438,8 +461,8 @@ function Matches() {
                 </div>
                 <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
                   {players.map(player => (
-                    <div key={player.id} style={{ 
-                      display: 'flex', 
+                    <div key={player.id} style={{
+                      display: 'flex',
                       alignItems: 'center',
                       padding: '4px 0',
                       opacity: formData.team2_player_ids.includes(player.id) ? 0.5 : 1,
@@ -459,11 +482,11 @@ function Matches() {
                           });
                         }}
                         disabled={formData.team2_player_ids.includes(player.id)}
-          style={{ marginRight: 8 }}
-        />
-                      <label 
+                        style={{ marginRight: 8 }}
+                      />
+                      <label
                         htmlFor={`team1-${player.id}`}
-                        style={{ 
+                        style={{
                           cursor: formData.team2_player_ids.includes(player.id) ? 'not-allowed' : 'pointer',
                           userSelect: 'none'
                         }}
@@ -478,8 +501,8 @@ function Matches() {
               {/* Team 2 */}
               <div style={{ flex: 1, padding: 16, border: '1px solid #ddd', borderRadius: 8 }}>
                 <div style={{ marginBottom: 8 }}>
-        <input
-          type="text"
+                  <input
+                    type="text"
                     placeholder="Team 2 Name"
                     value={formData.team2_name}
                     onChange={(e) => setFormData({ ...formData, team2_name: e.target.value })}
@@ -488,8 +511,8 @@ function Matches() {
                 </div>
                 <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
                   {players.map(player => (
-                    <div key={player.id} style={{ 
-                      display: 'flex', 
+                    <div key={player.id} style={{
+                      display: 'flex',
                       alignItems: 'center',
                       padding: '4px 0',
                       opacity: formData.team1_player_ids.includes(player.id) ? 0.5 : 1,
@@ -509,11 +532,11 @@ function Matches() {
                           });
                         }}
                         disabled={formData.team1_player_ids.includes(player.id)}
-          style={{ marginRight: 8 }}
-        />
-                      <label 
+                        style={{ marginRight: 8 }}
+                      />
+                      <label
                         htmlFor={`team2-${player.id}`}
-                        style={{ 
+                        style={{
                           cursor: formData.team1_player_ids.includes(player.id) ? 'not-allowed' : 'pointer',
                           userSelect: 'none'
                         }}
@@ -602,38 +625,38 @@ function Matches() {
         {/* Matches Grid */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 16, flex: 2 }}>
           {matches.map(match => (
-  <MatchCard
-    key={match.id}
-    match={match}
-    selected={selectedMatch?.id === match.id}
-    onClick={() => {
-      setSelectedMatch(match);
-      // (Preserve roundData logic as before, omitted for brevity)
-    }}
-    onDelete={() => handleDelete(match.id)}
-    onEditDate={{
-      value: formatDateForInput(match.date),
-      onChange: (e) => handleEditDate(match.id, e.target.value),
-      display: formatDateForDisplay(match.date)
-    }}
-    onEditVideoURL={{
-      value: selectedMatch?.id === match.id ? selectedMatch.video_url || "" : match.video_url || "",
-      onChange: (e) => {
-        if (selectedMatch?.id === match.id) {
-          setSelectedMatch({ ...selectedMatch, video_url: e.target.value });
-        } else {
-          setMatches(matches.map(m => m.id === match.id ? { ...m, video_url: e.target.value } : m));
-        }
-      }
-    }}
-    onUpdateVideoURL={() => handleUpdateVideoURL(match.id, selectedMatch?.id === match.id ? selectedMatch.video_url : match.video_url)}
-    generateTeamName={generateTeamName}
-    setSelectedMatch={setSelectedMatch}
-    setMatches={setMatches}
-    matches={matches}
-    selectedMatch={selectedMatch}
-  />
-))}
+            <MatchCard
+              key={match.id}
+              match={match}
+              selected={selectedMatch?.id === match.id}
+              onClick={() => {
+                setSelectedMatch(match);
+                // (Preserve roundData logic as before, omitted for brevity)
+              }}
+              onDelete={() => handleDelete(match.id)}
+              onEditDate={{
+                value: formatDateForInput(match.date),
+                onChange: (e) => handleEditDate(match.id, e.target.value),
+                display: formatDateForDisplay(match.date)
+              }}
+              onEditVideoURL={{
+                value: selectedMatch?.id === match.id ? selectedMatch.video_url || "" : match.video_url || "",
+                onChange: (e) => {
+                  if (selectedMatch?.id === match.id) {
+                    setSelectedMatch({ ...selectedMatch, video_url: e.target.value });
+                  } else {
+                    setMatches(matches.map(m => m.id === match.id ? { ...m, video_url: e.target.value } : m));
+                  }
+                }
+              }}
+              onUpdateVideoURL={() => handleUpdateVideoURL(match.id, selectedMatch?.id === match.id ? selectedMatch.video_url : match.video_url)}
+              generateTeamName={generateTeamName}
+              setSelectedMatch={setSelectedMatch}
+              setMatches={setMatches}
+              matches={matches}
+              selectedMatch={selectedMatch}
+            />
+          ))}
         </div>
 
         {/* Round Management Panel */}

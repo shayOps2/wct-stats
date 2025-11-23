@@ -9,7 +9,7 @@ build:
       context: frontend
       docker:
         buildArgs:
-          REACT_APP_BACKEND_URL: "http://backend.localhost:8081"      
+          REACT_APP_BACKEND_URL: "http://backend.localhost"      
         
     - image: backend
       context: backend

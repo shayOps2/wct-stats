@@ -14,6 +14,7 @@ def document_to_user(doc):
         username=doc["username"],
         hashed_password=doc["hashed_password"],
         role=doc.get("role", "User"),
+        team_id=doc.get("team_id"),
         created_at=doc.get("created_at")
     )
 
@@ -47,7 +48,8 @@ def document_to_player(doc):
             return Player(
                 id=str(doc["_id"]) if "_id" in doc else doc.get("id"),
                 name=doc["name"],
-                image_id=doc.get("image_id")
+                image_id=doc.get("image_id"),
+                team_id=doc.get("team_id")
             )
         except Exception as e:
             print(f"Error converting document to player: {str(e)}, Document: {doc}")
@@ -60,12 +62,13 @@ def player_to_document(player: Player):
     return {
         "id": str(player.id) if player.id else None,
         "name": player.name,
-        "image_id": player.image_id
+        "image_id": player.image_id,
+        "team_id": player.team_id
     }
 
-async def get_players(db):
+async def get_players(db, query: Optional[Dict[str, Any]] = None):
     players = []
-    cursor = db["players"].find()
+    cursor = db["players"].find(query or {})
     async for document in cursor:
         players.append(document_to_player(document))
     return players

@@ -13,6 +13,8 @@ from models import User, UserRole
 from contextlib import asynccontextmanager
 from motor.motor_asyncio import AsyncIOMotorClient 
 import os
+import secrets
+import string
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -30,12 +32,18 @@ async def lifespan(app: FastAPI):
         await init_db(db)
         await setup_database(db)
         logger.info("Database initialization completed")
-        # Create default admin user if not exists
         admin = await get_user_by_username(db, "admin")
         if not admin:
+            admin_password = os.getenv("ADMIN_PASSWORD")
+            if not admin_password:
+                logger.error("ADMIN_PASSWORD is not set")
+                raise HTTPException(status_code=500, detail="ADMIN_PASSWORD is not set")
+            else:
+                logger.info("Using configured ADMIN_PASSWORD")
+                
             admin_user = User(
                 username="admin",
-                hashed_password=get_password_hash("admin"),
+                hashed_password=get_password_hash(admin_password),
                 role=UserRole.admin,
             )
             await add_user(db, admin_user)

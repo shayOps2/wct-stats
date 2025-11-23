@@ -9,9 +9,20 @@ function Players() {
   const [error, setError] = useState(""); // State to manage error messages
 
   const fetchPlayers = () => {
-    fetch(`${BACKEND_URL}/players/`)
-      .then(res => res.json())
-      .then(setPlayers);
+    const token = localStorage.getItem("token");
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    fetch(`${BACKEND_URL}/players/`, { headers })
+      .then(res => {
+        if (res.status === 401) {
+          setError("Unauthorized. Please log in.");
+          return [];
+        }
+        return res.json();
+      })
+      .then(data => {
+        if (Array.isArray(data)) setPlayers(data);
+      })
+      .catch(err => setError("Failed to fetch players"));
   };
   useEffect(fetchPlayers, []);
 
@@ -27,7 +38,7 @@ function Players() {
         method: "POST",
         body: formData,
         headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}), 
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
 
@@ -36,9 +47,9 @@ function Players() {
         alert(errorData.message || "Failed to add player. Please check the input.");
         return;
       }
-      
+
       console.log("Response status:", response.status); // Log the response status for debugging
-      
+
       setName("");
       setImage(null);
       setError(""); // Clear any previous error
@@ -51,7 +62,7 @@ function Players() {
 
   const handleDelete = async id => {
     const token = localStorage.getItem("token");
-    await fetch(`${BACKEND_URL}/players/${id}`, { 
+    await fetch(`${BACKEND_URL}/players/${id}`, {
       method: "DELETE",
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -90,33 +101,33 @@ function Players() {
           <div key={p.id} style={{ border: "1px solid #ccc", borderRadius: 8, padding: 12, width: 180, position: "relative" }}>
             {p.image_id && (
               <div style={{ width: "100%", paddingTop: "100%", position: "relative", marginBottom: 8 }}>
-                <img 
-                  src={`${BACKEND_URL}/players/${p.id}/image`} 
-                  alt={p.name} 
-                  style={{ 
+                <img
+                  src={`${BACKEND_URL}/players/${p.id}/image`}
+                  alt={p.name}
+                  style={{
                     position: "absolute",
                     top: 0,
                     left: 0,
                     width: "100%",
                     height: "100%",
                     objectFit: "cover",
-                    borderRadius: 6 
-                  }} 
+                    borderRadius: 6
+                  }}
                 />
               </div>
             )}
             <div style={{ fontWeight: 600 }}>{p.name}</div>
             <button
               onClick={() => handleDelete(p.id)}
-              style={{ 
-                position: "absolute", 
-                top: 8, 
-                right: 8, 
-                background: "#f55", 
-                color: "#fff", 
-                border: "none", 
-                borderRadius: 4, 
-                padding: "2px 8px", 
+              style={{
+                position: "absolute",
+                top: 8,
+                right: 8,
+                background: "#f55",
+                color: "#fff",
+                border: "none",
+                borderRadius: 4,
+                padding: "2px 8px",
                 cursor: "pointer",
                 zIndex: 1
               }}

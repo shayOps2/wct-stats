@@ -1,20 +1,34 @@
 import React, { useState, useEffect } from "react";
-import { 
-  Card, 
-  Row, 
-  Col, 
-  Table, 
-  Spin, 
-  Alert, 
-  DatePicker, 
-  Button, 
-  Divider
+import {
+  Card,
+  Row,
+  Col,
+  Table,
+  Spin,
+  Alert,
+  DatePicker,
+  Button,
+  Divider,
+  Select
 } from "antd";
+import { useNavigate } from "react-router-dom";
 import { BACKEND_URL } from "../config"; // Import the constant
 
 const { RangePicker } = DatePicker;
+const { Option } = Select;
 
 function PlayerStats() {
+  const navigate = useNavigate();
+  const userStr = localStorage.getItem("user");
+  const user = userStr ? JSON.parse(userStr) : null;
+
+  // Redirect if user is logged in but has no team assigned (and is not Admin)
+  useEffect(() => {
+    if (user && user.role !== "Admin" && !user.team_id) {
+      navigate("/");
+    }
+  }, [user, navigate]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [playersWithStats, setPlayersWithStats] = useState([]);
@@ -29,7 +43,7 @@ function PlayerStats() {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Build URL with optional date filters
       let url = `${BACKEND_URL}/players/`;
       if (startDate || endDate) {
@@ -41,9 +55,17 @@ function PlayerStats() {
           url += `end_date=${endDate.toISOString()}&`;
         }
       }
-      
+
+      const token = localStorage.getItem("token");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
       // Fetch all players
-      const response = await fetch(url);
+      const response = await fetch(url, { headers });
+      if (response.status === 401) {
+        setError("Unauthorized. Please log in.");
+        setLoading(false);
+        return;
+      }
       const playerList = await response.json();
 
       // Fetch stats for each player
@@ -60,15 +82,15 @@ function PlayerStats() {
               statsUrl += `end_date=${endDate.toISOString()}&`;
             }
           }
-          
-          const statsResponse = await fetch(statsUrl);
+
+          const statsResponse = await fetch(statsUrl, { headers });
           const stats = await statsResponse.json();
-          
+
           // Calculate additional metrics
           const totalChases = stats.offense.total_evasion_attempts + stats.defense.total_chase_attempts;
           const tagRate = stats.defense.tagging_success_rate;
           const evasionRate = stats.offense.evasion_success_rate;
-          
+
           return {
             ...player,
             stats,
@@ -109,7 +131,7 @@ function PlayerStats() {
 
   // Player Stats Table Columns
   const playerStatsColumns = [
-    { 
+    {
       title: 'Player',
       dataIndex: 'name',
       key: 'name',
@@ -213,23 +235,23 @@ function PlayerStats() {
   return (
     <div style={{ padding: 24 }}>
       <h2>Player Statistics</h2>
-      
+
       <Card bordered={false} style={{ marginBottom: 24 }}>
         <Row gutter={[16, 16]} align="middle">
           <Col xs={24} sm={12}>
-            <RangePicker 
+            <RangePicker
               style={{ width: '100%' }}
               onChange={value => {
                 // Value will be null when user clears the picker
                 setDateRange(value);
               }}
-              allowEmpty={[false, true]} 
+              allowEmpty={[false, true]}
               placeholder={['Start Date', 'End Date (optional)']}
             />
           </Col>
           <Col xs={24} sm={12}>
-            <Button 
-              type="primary" 
+            <Button
+              type="primary"
               onClick={applyFilters}
               loading={applyingFilters}
               style={{ marginRight: 8 }}
@@ -242,7 +264,7 @@ function PlayerStats() {
               </Button>
             )}
           </Col>
-          
+
           {/* Active filters display */}
           {dateRange && dateRange[0] && (
             <Col xs={24}>
@@ -254,9 +276,9 @@ function PlayerStats() {
           )}
         </Row>
       </Card>
-      
+
       <Divider />
-      
+
       {/* Main Player Stats Table */}
       <Card title="All Players" bordered={false}>
         {applyingFilters ? (

@@ -58,7 +58,7 @@ async def login_for_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token = create_access_token(
-        data={"sub": user.username, "role": user.role}
+        data={"sub": user.username, "role": user.role, "team_id": user.team_id}
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -87,11 +87,12 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         role: str = payload.get("role")
-        logger.info(f"JWT payload: username={username}, role={role}")
+        team_id: str = payload.get("team_id")
+        logger.info(f"JWT payload: username={username}, role={role}, team_id={team_id}")
         if username is None or role is None:
             logger.warning("JWT token missing username or role")
             raise HTTPException(status_code=401, detail="Invalid token")
-        return {"username": username, "role": role}
+        return {"username": username, "role": role, "team_id": team_id}
     except jwt.PyJWTError as e:
         logger.error(f"JWT validation failed: {str(e)}")
         raise HTTPException(status_code=401, detail="Invalid token")
