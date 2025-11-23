@@ -125,6 +125,29 @@ async def create_player(
     
     return player
 
+@router.put("/{player_id}")
+async def update_player_details(
+    player_id: str,
+    name: Optional[str] = Body(None),
+    team_id: Optional[str] = Body(None),
+    current_user: dict = Depends(get_current_user),
+    db = Depends(get_db)
+):
+    if current_user["role"] != "Admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    
+    player = await get_player(db, player_id)
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+        
+    if name:
+        player.name = name
+    if team_id is not None:
+        player.team_id = team_id
+        
+    updated_player = await add_player(db, player)
+    return updated_player
+
 @router.delete("/{player_id}")
 async def remove_player(
     request: Request,

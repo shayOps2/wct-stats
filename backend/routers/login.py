@@ -67,6 +67,7 @@ async def register_user(
     username: str = Body(...),
     password: str = Body(...),
     role: UserRole = Body(UserRole.user),
+    team_id: Optional[str] = Body(None),
     db = Depends(get_db)
 ):
     # Password strength check
@@ -76,7 +77,7 @@ async def register_user(
     if existing:
         raise HTTPException(status_code=400, detail="Username already registered")
     hashed_password = get_password_hash(password)
-    user = User(username=username, hashed_password=hashed_password, role=role, created_at=datetime.now())
+    user = User(username=username, hashed_password=hashed_password, role=role, team_id=team_id, created_at=datetime.now())
     await add_user(db, user)
     return {"msg": "User created", "username": username}
 

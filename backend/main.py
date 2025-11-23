@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routers import players, matches, pins, login, backup
+from routers import players, matches, pins, login, backup, teams
 from database import init_db, setup_database
 import logging
 from cors import add_cors_middleware  
@@ -62,6 +62,7 @@ app.add_middleware(SlowAPIMiddleware)
 app.include_router(login.router, prefix="/login", tags=["Login"]) 
 app.include_router(players.router, prefix="/players", tags=["Players"])
 app.include_router(matches.router, prefix="/matches", tags=["Matches"])
+app.include_router(teams.router, prefix="/teams", tags=["Teams"])
 app.include_router(pins.router)
 app.include_router(backup.router, tags=["Admin"])
 

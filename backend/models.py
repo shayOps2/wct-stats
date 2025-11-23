@@ -3,6 +3,10 @@ from typing import List, Optional, Literal, Dict, Any
 from datetime import datetime
 from enum import Enum
 
+class Team(BaseModel):
+    id: Optional[str] = None
+    name: str = Field(..., min_length=1, max_length=50)
+
 class Player(BaseModel):
     id: Optional[str] = None
     name: str = Field(..., min_length=1, max_length=50, pattern=r"^[a-zA-Z]+( [a-zA-Z]+)*$")

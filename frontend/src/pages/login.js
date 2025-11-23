@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, Input, Button, Typography, message } from "antd";
+import { Card, Input, Button, Typography, message, Select } from "antd";
 import { BACKEND_URL } from "../config";
 
 const { Title, Text } = Typography;
+const { Option } = Select;
 
 function Login({ setUser }) {
   const [username, setUsername] = useState("");
@@ -11,7 +12,18 @@ function Login({ setUser }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [pwError, setPwError] = useState("");
+  const [teams, setTeams] = useState([]);
+  const [teamId, setTeamId] = useState(null);
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    fetch(`${BACKEND_URL}/teams/`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setTeams(data);
+      })
+      .catch(err => console.error("Failed to fetch teams", err));
+  }, []);
 
   const userStr = localStorage.getItem("user");
   const user = userStr ? JSON.parse(userStr) : null;
@@ -62,7 +74,7 @@ function Login({ setUser }) {
       const res = await fetch(`${BACKEND_URL}/login/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, team_id: teamId }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -127,6 +139,17 @@ function Login({ setUser }) {
         >
           Login
         </Button>
+        <Select
+          placeholder="Select Team (Optional)"
+          value={teamId}
+          onChange={setTeamId}
+          style={{ width: "100%", marginBottom: 12 }}
+          allowClear
+        >
+          {teams.map(t => (
+            <Option key={t.id} value={t.id}>{t.name}</Option>
+          ))}
+        </Select>
         <Button
           onClick={handleRegister}
           loading={loading}

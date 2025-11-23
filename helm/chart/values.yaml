@@ -19,8 +19,8 @@ backend:
         name: oci-bucket-par
     - secretRef:
         name: openrouter-api-key
-  - secretRef:
-      name: admin-password
+    - secretRef:
+        name: admin-password
   image:
     repository: ghcr.io/shayops2/wct-stats-backend
     tag: "v1.0.3"

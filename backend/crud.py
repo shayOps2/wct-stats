@@ -1,5 +1,5 @@
 # CRUD logic for players, matches, pins
-from models import Player, Match, Round, Pin, User
+from models import Player, Match, Round, Pin, User, Team
 from bson import ObjectId
 import bson
 from typing import List, Optional, Dict, Any
@@ -364,5 +364,35 @@ async def delete_pin(db, pin_id: str) -> bool:
         print(f"Error deleting pin: {str(e)}")
         return False
 
-# End of CRUD operations
+def document_to_team(doc):
+    if not doc:
+        return None
+    return Team(
+        id=str(doc["_id"]),
+        name=doc["name"]
+    )
 
+async def get_teams(db):
+    teams = []
+    cursor = db["teams"].find({})
+    async for document in cursor:
+        teams.append(document_to_team(document))
+    return teams
+
+async def get_team_by_name(db, name: str):
+    doc = await db["teams"].find_one({"name": name})
+    return document_to_team(doc)
+
+async def create_team(db, team: Team):
+    doc = team.model_dump(exclude_unset=True)
+    if "id" in doc:
+        doc.pop("id")
+    result = await db["teams"].insert_one(doc)
+    team.id = str(result.inserted_id)
+    return team
+
+async def delete_team(db, team_id: str):
+    if not bson.ObjectId.is_valid(team_id):
+        return False
+    result = await db["teams"].delete_one({"_id": bson.ObjectId(team_id)})
+    return result.deleted_count > 0
