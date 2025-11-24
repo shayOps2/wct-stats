@@ -24,7 +24,9 @@ resource "oci_core_instance" "talos_controlplane" {
     source_type = "image"
     source_id   = var.talos_image_ocid
   }
-
+  freeform_tags = {
+    talos = "true"
+  }
   display_name = "talos-controlplane"
 }
 
@@ -57,6 +59,8 @@ resource "oci_core_instance" "talos_worker" {
     source_type = "image"
     source_id   = var.talos_image_ocid
   }
-
+  freeform_tags = {
+    talos = "true"
+  }
   display_name = "talos-worker"
 }
