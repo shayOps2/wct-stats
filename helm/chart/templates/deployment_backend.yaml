@@ -2,28 +2,16 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "chart.fullname" . }}-backend
-  labels:
-    io.kompose.service: backend
-  {{- include "chart.labels" . | nindent 4 }}
-  annotations:
-    kompose.cmd: kompose convert
-    kompose.version: 1.34.0 (cbf2835db)  
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: {{ .Values.backend.replicas }}
-  strategy:
-    type: {{ .Values.backend.strategy.type | quote }}
   selector:
     matchLabels:
-      io.kompose.service: backend    
-      {{- include "chart.selectorLabels" . | nindent 6 }}
+      app: {{ include "chart.fullname" . }}-backend
   template:
     metadata:
       labels:
-        io.kompose.service: backend
-      {{- include "chart.selectorLabels" . | nindent 8 }}
-      annotations:
-        kompose.cmd: kompose convert
-        kompose.version: 1.34.0 (cbf2835db)
+        app: {{ include "chart.fullname" . }}-backend
     spec:
       imagePullSecrets: 
 {{- toYaml .Values.backend.imagePullSecrets | nindent 8 }}
@@ -49,3 +37,17 @@ spec:
           protocol: TCP
         resources: {}
       restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "chart.fullname" . }}-backend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "chart.fullname" . }}-backend
+spec:
+  type: {{ .Values.backend.type }}
+  selector:
+    app: {{ include "chart.fullname" . }}-backend
+  ports:
+  {{- .Values.backend.ports | toYaml | nindent 2 }}

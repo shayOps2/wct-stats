@@ -1,19 +1,11 @@
+{{- if .Values.ingress.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ include "chart.fullname" . }}-frontend-ingress
-  labels:
-  {{- include "chart.labels" . | nindent 4 }}
-  {{- if .Values.ingress.annotations.enabled_annotations }}
-  annotations:
-    {{- range $key, $value := .Values.ingress.annotations }}
-      {{- if ne $key "enabled_annotations" }}
-    {{ $key }}: {{ $value | quote }}
-      {{- end }}
-    {{- end }}
-  {{- end }}
+  namespace: {{ .Release.Namespace }}
 spec:
-  ingressClassName: {{ .Values.ingress.frontend.className }}
+  ingressClassName: {{ .Values.ingress.ingressClassName }}
   {{- if eq .Values.ingress.frontend.className "tailscale" }}
   tls:
     - hosts:
@@ -30,3 +22,4 @@ spec:
               number: {{ (index .Values.frontend.ports 0).port}}
         path: /
         pathType: Prefix
+{{- end }}

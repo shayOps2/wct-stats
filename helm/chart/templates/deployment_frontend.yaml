@@ -2,26 +2,16 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "chart.fullname" . }}-frontend
-  labels:
-    io.kompose.service: frontend
-  {{- include "chart.labels" . | nindent 4 }}
-  annotations:
-    kompose.cmd: kompose convert
-    kompose.version: 1.34.0 (cbf2835db)
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: {{ .Values.frontend.replicas }}
   selector:
     matchLabels:
-      io.kompose.service: frontend
-    {{- include "chart.selectorLabels" . | nindent 6 }}
+      app: {{ include "chart.fullname" . }}-frontend
   template:
     metadata:
       labels:
-        io.kompose.service: frontend
-      {{- include "chart.selectorLabels" . | nindent 8 }}
-      annotations:
-        kompose.cmd: kompose convert
-        kompose.version: 1.34.0 (cbf2835db)
+        app: {{ include "chart.fullname" . }}-frontend
     spec:
       imagePullSecrets: 
 {{- toYaml .Values.frontend.imagePullSecrets | nindent 8 }}
@@ -36,3 +26,17 @@ spec:
           protocol: TCP
         resources: {}
       restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "chart.fullname" . }}-frontend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "chart.fullname" . }}-frontend
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ include "chart.fullname" . }}-frontend
+  ports:
+  {{- .Values.frontend.ports | toYaml | nindent 2 }}

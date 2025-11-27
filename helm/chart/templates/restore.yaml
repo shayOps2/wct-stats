@@ -2,19 +2,13 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ include "chart.fullname" . }}-mongo-restore
-  labels:
-    app.kubernetes.io/name: {{ include "chart.name" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-delete-policy": hook-succeeded
 spec:
   backoffLimit: 2
   template:
-    metadata:
-      labels:
-        app.kubernetes.io/name: {{ include "chart.name" . }}
-        app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
       restartPolicy: OnFailure
       imagePullSecrets:
@@ -36,4 +30,3 @@ spec:
               value: {{ $env | quote }}
           envFrom:
 {{- toYaml .Values.mongo.restore.envFrom | nindent 12 }}
-      volumes: []

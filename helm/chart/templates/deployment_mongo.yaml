@@ -2,33 +2,22 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "chart.fullname" . }}-mongo
-  labels:
-    io.kompose.service: mongo
-  {{- include "chart.labels" . | nindent 4 }}
-  annotations:
-    kompose.cmd: kompose convert
-    kompose.version: 1.34.0 (cbf2835db)
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: {{ .Values.mongo.replicas }}
   selector:
     matchLabels:
-      io.kompose.service: mongo
-    {{- include "chart.selectorLabels" . | nindent 6 }}
+      app: {{ include "chart.fullname" . }}-mongo
   template:
     metadata:
       labels:
-        io.kompose.service: mongo
-      {{- include "chart.selectorLabels" . | nindent 8 }}
-      annotations:
-        kompose.cmd: kompose convert
-        kompose.version: 1.34.0 (cbf2835db)
+        app: {{ include "chart.fullname" . }}-mongo
     spec:
       containers:
       - env:
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
-        image: {{ .Values.mongo.mongo.image.repository }}:{{ .Values.mongo.mongo.image.tag
-          | default .Chart.AppVersion }}
+        image: {{ .Values.mongo.mongo.image.repository }}:{{ .Values.mongo.mongo.image.tag }}
         args: {{- toYaml .Values.mongo.mongo.args | nindent 8 }}
         livenessProbe: {{- toYaml .Values.mongo.mongo.livenessProbe | nindent 10 }}
         name: {{ include "chart.fullname" . }}-mongo
@@ -37,3 +26,15 @@ spec:
           protocol: TCP
         resources: {}
       restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "chart.fullname" . }}-mongo
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ include "chart.fullname" . }}-mongo
+  ports:
+  {{- .Values.mongo.ports | toYaml | nindent 2 }}
