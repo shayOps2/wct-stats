@@ -18,15 +18,9 @@ spec:
           image: {{ .Values.mongo.restore.image.repository }}:{{ .Values.mongo.restore.image.tag }}
           imagePullPolicy: {{ .Values.mongo.restore.imagePullPolicy | default "IfNotPresent" | quote }}
           env:
-            - name: MONGO_HOST
-              value: "{{ printf "%s-mongo" (include "chart.fullname" .) }}"
-            - name: ENV
-              {{- $env := "production" }}
-              {{- range .Values.backend.env }}
-                {{- if eq .name "ENV" }}
-                  {{- $env = .value }}
-                {{- end }}
-              {{- end }}
-              value: {{ $env | quote }}
+          {{- range .Values.mongo.restore.env }}
+          - name: {{ .name }}
+            value: {{ .value | replace "__MONGO_HOST__" (printf "%s-mongo" (include "chart.fullname" $)) | quote }}
+          {{- end }}
           envFrom:
 {{- toYaml .Values.mongo.restore.envFrom | nindent 12 }}

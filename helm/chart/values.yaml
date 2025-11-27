@@ -68,6 +68,11 @@ ingress:
 mongo:
   # mongoDB restore job configuration
   restore:
+    env:
+      - name: ENV
+        value: production
+      - name: MONGODB_URL
+        value: mongodb://__MONGO_HOST__:27017  
     envFrom:
       - secretRef:
           name: oci-bucket-par

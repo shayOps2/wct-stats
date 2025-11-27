@@ -27,3 +27,21 @@ ingress:
     paths:
       - /
     className: traefik
+
+mongo:
+  # mongoDB restore job configuration
+  restore:
+    env:
+      - name: ENV
+        value: production
+      - name: MONGO_HOST
+        value: mongodb://__MONGO_HOST__:27017  
+    envFrom:
+      - secretRef:
+          name: oci-bucket-par
+    imagePullSecrets:
+      - name: regcred
+    image:
+      repository: ghcr.io/shayops2/wct-stats-mongo-restore
+      tag: "2.4"
+    imagePullPolicy: IfNotPresent

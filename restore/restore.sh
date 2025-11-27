@@ -2,9 +2,9 @@
 set -eux
 
 # required env vars:
-# - MONGO_HOST  (e.g. "<release>-mongo:27017")
+# - MONGODB_URL  (e.g. "<release>-mongo:27017")
 # - UPLOAD_PAR_URL     (pre-authenticated GET/PUT URL to download the dump)
-: "${MONGO_HOST:?MONGO_HOST is required}"
+: "${MONGODB_URL:?MONGODB_URL is required}"
 : "${UPLOAD_PAR_URL:?UPLOAD_PAR_URL is required}"
 
 TMPDIR=${TMPDIR:-/tmp/restore}
@@ -18,7 +18,7 @@ echo "Downloading ${URL}"
 curl -fSL -o "$ARCHIVE" "$URL"
 
 # if Mongo already has data, skip restore
-COUNT=$(mongo --host "$MONGO_HOST" --quiet --eval "db.adminCommand('listDatabases').databases.length" | tr -d '\r' || echo 0)
+COUNT=$(mongo --uri "$MONGODB_URL" --quiet --eval "db.adminCommand('listDatabases').databases.length" | tr -d '\r' || echo 0)
 echo "Detected database count: ${COUNT}"
 if [ -n "$COUNT" ] && [ "$COUNT" -gt 1 ]; then
   echo "Mongo already has data, skipping restore"
@@ -26,7 +26,7 @@ if [ -n "$COUNT" ] && [ "$COUNT" -gt 1 ]; then
 fi
 
 echo "Attempting mongorestore as --archive (mongodump archive)"
-if mongorestore --host "$MONGO_HOST" --archive="$ARCHIVE" --gzip --drop; then
+if mongorestore --uri "$MONGODB_URL" --archive="$ARCHIVE" --gzip --drop; then
   echo "Restore via --archive succeeded"
   exit 0
 else
@@ -41,7 +41,7 @@ mkdir -p "$EXTRACT_DIR"
 if tar -tzf "$ARCHIVE" > /dev/null 2>&1; then
   tar -xzf "$ARCHIVE" -C "$EXTRACT_DIR"
   echo "Archive extracted to $EXTRACT_DIR; running mongorestore --dir"
-  if mongorestore --host "$MONGO_HOST" --dir "$EXTRACT_DIR" --drop; then
+  if mongorestore --uri "$MONGODB_URL" --dir "$EXTRACT_DIR" --drop; then
     echo "Restore via --dir succeeded"
     exit 0
   else

@@ -25,6 +25,7 @@ deploy:
           
           backend.image.repository: "{{.IMAGE_REPO_backend}}"
           backend.image.tag: "{{.IMAGE_TAG_backend}}"
+
         valuesFiles:
           - helm/chart/values-local-dev.yaml
           
