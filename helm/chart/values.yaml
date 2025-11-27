@@ -32,8 +32,6 @@ backend:
       port: 8000
       targetPort: 8000
   replicas: 1
-
-
 frontend:
   image:
     repository: ghcr.io/shayops2/wct-stats-frontend
@@ -46,11 +44,7 @@ frontend:
       port: 8080
       targetPort: 80
   replicas: 1
-
-
 kubernetesClusterDomain: cluster.local
-
-
 ingress:
   ingressClassName: traefik
   enabled: true
@@ -62,8 +56,6 @@ ingress:
     host: frontend.example
     paths:
       - /
-
-
 # MongoDB configuration
 mongo:
   # mongoDB restore job configuration
@@ -72,7 +64,7 @@ mongo:
       - name: ENV
         value: production
       - name: MONGODB_URL
-        value: mongodb://__MONGO_HOST__:27017  
+        value: mongodb://__MONGO_HOST__:27017
     envFrom:
       - secretRef:
           name: oci-bucket-par
@@ -80,7 +72,7 @@ mongo:
       - name: regcred
     image:
       repository: ghcr.io/shayops2/wct-stats-mongo-restore
-      tag: "2.4"
+      tag: "2.5"
     imagePullPolicy: IfNotPresent
   # mongoDB main deployment configuration
   mongo:
