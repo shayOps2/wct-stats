@@ -1,0 +1,321 @@
+---
+# Source: chart/templates/deployment_backend.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: release-name-chart-backend
+  namespace: default
+  labels:
+    app: release-name-chart-backend
+spec:
+  type: 
+  selector:
+    app: release-name-chart-backend
+  ports:
+  - name: "8000"
+    port: 8000
+    targetPort: 8000
+---
+# Source: chart/templates/deployment_frontend.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: release-name-chart-frontend
+  namespace: default
+  labels:
+    app: release-name-chart-frontend
+spec:
+  type: ClusterIP
+  selector:
+    app: release-name-chart-frontend
+  ports:
+  - name: "8080"
+    port: 8080
+    targetPort: 80
+---
+# Source: chart/templates/statefulset_mongo.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: release-name-chart-mongo
+  namespace: default
+spec:
+  clusterIP: None
+  selector:
+    app: release-name-chart-mongo
+  ports:
+  - name: "27017"
+    port: 27017
+    targetPort: 27017
+---
+# Source: chart/templates/deployment_backend.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: release-name-chart-backend
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: release-name-chart-backend
+  template:
+    metadata:
+      labels:
+        app: release-name-chart-backend
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      containers:
+      - args:
+        - exec gunicorn main:app -c gunicorn.conf.py -k uvicorn.workers.UvicornWorker --bind
+          0.0.0:8000
+        command:
+        - /bin/sh
+        - -c
+        env:
+          - name: ENV
+            value: "production"
+          - name: MONGODB_URL
+            value: "mongodb://release-name-chart-mongo-0.release-name-chart-mongo:27017,release-name-chart-mongo-1.release-name-chart-mongo:27017,release-name-chart-mongo-2.release-name-chart-mongo:27017/?replicaSet=rs0"
+        envFrom:
+        - secretRef:
+            name: jwt-token
+        - secretRef:
+            name: oci-bucket-par
+        - secretRef:
+            name: openrouter-api-key
+        - secretRef:
+            name: admin-password
+        image: ghcr.io/shayops2/wct-stats-backend:v1.0.3
+        name: backend
+        ports:
+        - containerPort: 8000
+          protocol: TCP
+        resources: {}
+      restartPolicy: Always
+---
+# Source: chart/templates/deployment_frontend.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: release-name-chart-frontend
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: release-name-chart-frontend
+  template:
+    metadata:
+      labels:
+        app: release-name-chart-frontend
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      containers:
+      - env:
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: "cluster.local"
+        image: ghcr.io/shayops2/wct-stats-frontend:v1.0.2
+        name: frontend
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        resources: {}
+      restartPolicy: Always
+---
+# Source: chart/templates/statefulset_mongo.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: release-name-chart-mongo
+  namespace: default
+spec:
+  serviceName: release-name-chart-mongo
+  replicas: 3
+  selector:
+    matchLabels:
+      app: release-name-chart-mongo
+  template:
+    metadata:
+      labels:
+        app: release-name-chart-mongo
+    spec: 
+      containers:
+      - name: release-name-chart-mongo
+        image: mongo:6.0
+        args:
+        - --bind_ip_all
+        - --replSet
+        - rs0
+        livenessProbe:
+          exec:
+            command:
+            - mongosh
+            - --eval
+            - db.adminCommand('ping')
+          failureThreshold: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+        ports:
+        - containerPort: 27017
+        volumeMounts:
+        - name: data
+          mountPath: /data/db
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 5Gi
+      storageClassName: local-path
+---
+# Source: chart/templates/backend-ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: release-name-chart-backend-ingress
+  namespace: default
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: backend.localhost
+    http:
+      paths:
+      - backend:
+          service:
+            name: release-name-chart-backend
+            port:
+              number: 8000
+        path: /
+        pathType: Prefix
+---
+# Source: chart/templates/frontend-ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: release-name-chart-frontend-ingress
+  namespace: default
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: frontend.localhost
+    http:
+      paths:
+      - backend:
+          service:
+            name: release-name-chart-frontend
+            port:
+              number: 8080
+        path: /
+        pathType: Prefix
+---
+# Source: chart/templates/mongo-init.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: release-name-chart-mongo-init
+  namespace: default
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    # "helm.sh/hook-delete-policy": hook-succeeded    
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mongo-init
+          image: mongo:6.0
+          command: ["/bin/sh", "-c"]           
+          args:
+            - |
+             
+              #!/bin/bash
+              set -euo pipefail
+              
+              HOSTS="$(printf "%s" "release-name-chart-mongo-0.release-name-chart-mongo:27017 release-name-chart-mongo-1.release-name-chart-mongo:27017 release-name-chart-mongo-2.release-name-chart-mongo:27017")"
+              
+              PRIMARY=$(echo "$HOSTS" | awk '{print $1}')
+              
+              echo "ReplicaSet hosts: $HOSTS"
+              echo "Primary will be: $PRIMARY"
+              
+              echo "Checking MongoDB readiness for each replica..."
+              for host in $HOSTS; do
+                echo "Waiting for MongoDB at $host ..."
+                for attempt in $(seq 1 60); do
+                  if nc -z $(echo "$host" | cut -d: -f1) 27017 && \
+                     mongosh --host "$host" --eval "db.adminCommand('ping')" >/dev/null 2>&1; then
+                    echo "$host is ready."
+                    break
+                  fi
+                  echo "Retrying $host ($attempt/60)..."
+                  sleep 2
+                done
+              done
+              
+              
+              echo "Checking if replica set already initialized..."
+              if ! mongosh --host "$PRIMARY" --eval "rs.status()" | grep -q "_id"; then
+                echo "Replica set not initialized. Initializing..."
+              
+                MEMBERS=""
+                IDX=0
+                for host in $HOSTS; do
+                  if [ -z "$MEMBERS" ]; then
+                    MEMBERS="{ _id: $IDX, host: '$host' }"
+                  else
+                    MEMBERS="$MEMBERS, { _id: $IDX, host: '$host' }"
+                  fi
+                  IDX=$((IDX+1))
+                done
+              
+                echo "Replica set members:"
+                echo "$MEMBERS"
+              
+                mongosh --host "$PRIMARY" \
+                  --eval "rs.initiate({ _id: 'rs0', members: [ $MEMBERS ] })"
+              
+                echo "Replica set initialized."
+              else
+                echo "Replica set already initialized."
+              fi
+---
+# Source: chart/templates/restore.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mongo-restore
+  namespace: default
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    # "helm.sh/hook-delete-policy": hook-succeeded    
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: OnFailure
+      imagePullSecrets:
+        - name: regcred
+      containers:
+      - name: mongo-restore
+        image: ghcr.io/shayops2/wct-stats-mongo-restore:2.5
+        imagePullPolicy: "IfNotPresent"
+        envFrom:
+        - secretRef:
+            name: jwt-token
+        - secretRef:
+            name: oci-bucket-par
+        - secretRef:
+            name: openrouter-api-key
+        - secretRef:
+            name: admin-password
+        env:
+          - name: ENV
+            value: "production"
+          - name: MONGODB_URL
+            value: "mongodb://release-name-chart-mongo-0.release-name-chart-mongo:27017,release-name-chart-mongo-1.release-name-chart-mongo:27017,release-name-chart-mongo-2.release-name-chart-mongo:27017/?replicaSet=rs0"

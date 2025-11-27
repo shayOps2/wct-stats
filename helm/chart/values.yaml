@@ -61,10 +61,10 @@ mongo:
   # mongoDB restore job configuration
   restore:
     env:
-      - name: ENV
-        value: production
-      - name: MONGODB_URL
-        value: mongodb://__MONGO_HOST__:27017
+    - name: ENV
+      value: production
+    - name: MONGODB_URL
+      value: mongodb://__MONGO_HOST__:27017
     envFrom:
       - secretRef:
           name: oci-bucket-par
@@ -87,6 +87,8 @@ mongo:
       timeoutSeconds: 5
     args:
       - --bind_ip_all
+      - --replSet
+      - rs0
     image:
       repository: mongo
       tag: "6.0"
@@ -94,4 +96,6 @@ mongo:
     - name: "27017"
       port: 27017
       targetPort: 27017
-  replicas: 1
+  replicas: 3
+  storageSize: 2Gi
+  storageClass: clusterStorgeClass

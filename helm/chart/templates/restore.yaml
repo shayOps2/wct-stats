@@ -1,26 +1,30 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "chart.fullname" . }}-mongo-restore
+  name: mongo-restore
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-delete-policy": hook-succeeded
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed   
 spec:
   backoffLimit: 2
   template:
     spec:
       restartPolicy: OnFailure
       imagePullSecrets:
-{{- toYaml .Values.mongo.restore.imagePullSecrets | nindent 6 }}
+{{- toYaml .Values.mongo.restore.imagePullSecrets | nindent 8 }}
       containers:
-        - name: mongo-restore
-          image: {{ .Values.mongo.restore.image.repository }}:{{ .Values.mongo.restore.image.tag }}
-          imagePullPolicy: {{ .Values.mongo.restore.imagePullPolicy | default "IfNotPresent" | quote }}
-          env:
-          {{- range .Values.mongo.restore.env }}
+      - name: mongo-restore
+        image: {{ .Values.mongo.restore.image.repository }}:{{ .Values.mongo.restore.image.tag }}
+        imagePullPolicy: {{ .Values.mongo.restore.imagePullPolicy | default "IfNotPresent" | quote }}
+        envFrom:
+        {{- range .Values.backend.envFrom }}
+        - secretRef:
+            name: {{ .secretRef.name }}
+        {{- end }}
+        env:
+        {{- range .Values.mongo.restore.env }}
           - name: {{ .name }}
-            value: {{ .value | replace "__MONGO_HOST__" (printf "%s-mongo" (include "chart.fullname" $)) | quote }}
-          {{- end }}
-          envFrom:
-{{- toYaml .Values.mongo.restore.envFrom | nindent 12 }}
+            value: {{ include "envValue" (dict "env" . "context" $) | quote }}
+        {{- end }}
+

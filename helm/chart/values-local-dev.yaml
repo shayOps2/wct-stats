@@ -14,6 +14,7 @@ frontend:
 
 
 ingress:
+  ingressClassName: traefik
   enabled: true
   annotations:
     enabled_annotations: false
@@ -21,27 +22,12 @@ ingress:
     host: backend.localhost
     paths:
       - /
-    className: traefik
   frontend:
     host: frontend.localhost
     paths:
       - /
-    className: traefik
 
 mongo:
-  # mongoDB restore job configuration
-  restore:
-    env:
-      - name: ENV
-        value: production
-      - name: MONGO_HOST
-        value: mongodb://__MONGO_HOST__:27017  
-    envFrom:
-      - secretRef:
-          name: oci-bucket-par
-    imagePullSecrets:
-      - name: regcred
-    image:
-      repository: ghcr.io/shayops2/wct-stats-mongo-restore
-      tag: "2.4"
-    imagePullPolicy: IfNotPresent
+  replicas: 3
+  storageSize: 5Gi
+  storageClass: local-path

@@ -20,9 +20,9 @@ spec:
         command: {{- toYaml .Values.backend.command | nindent 8 }}
         env:
         {{- range .Values.backend.env }}
-        - name: {{ .name }}
-          value: {{ .value | replace "__MONGO_HOST__" (printf "%s-mongo" (include "chart.fullname" $)) | quote }}
-        {{- end }}
+          - name: {{ .name }}
+            value: {{ include "envValue" (dict "env" . "context" $) | quote }}
+        {{- end }}        
         {{- if .Values.backend.envFrom }}
         envFrom:
         {{- range .Values.backend.envFrom }}

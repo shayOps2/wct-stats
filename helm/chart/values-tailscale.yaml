@@ -10,6 +10,7 @@ frontend:
     repository: ghcr.io/shayops2/wct-stats-frontend
     tag: "v1.1.6"
 ingress:
+  ingressClassName: tailscale
   enabled: true
   annotations:
     enabled_annotations: true
@@ -18,9 +19,7 @@ ingress:
     host: backend.cheetoh-gila.ts.net
     paths:
       - /
-    className: tailscale
   frontend:
     host: wct.cheetoh-gila.ts.net
     paths:
       - /
-    className: tailscale

@@ -1,9 +1,10 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ include "chart.fullname" . }}-mongo
   namespace: {{ .Release.Namespace }}
 spec:
+  serviceName: {{ include "chart.fullname" . }}-mongo
   replicas: {{ .Values.mongo.replicas }}
   selector:
     matchLabels:
@@ -12,20 +13,26 @@ spec:
     metadata:
       labels:
         app: {{ include "chart.fullname" . }}-mongo
-    spec:
+    spec: 
       containers:
-      - env:
-        - name: KUBERNETES_CLUSTER_DOMAIN
-          value: {{ quote .Values.kubernetesClusterDomain }}
+      - name: {{ include "chart.fullname" . }}-mongo
         image: {{ .Values.mongo.mongo.image.repository }}:{{ .Values.mongo.mongo.image.tag }}
         args: {{- toYaml .Values.mongo.mongo.args | nindent 8 }}
         livenessProbe: {{- toYaml .Values.mongo.mongo.livenessProbe | nindent 10 }}
-        name: {{ include "chart.fullname" . }}-mongo
         ports:
         - containerPort: {{ (index .Values.mongo.ports 0).port }}
-          protocol: TCP
-        resources: {}
-      restartPolicy: Always
+        volumeMounts:
+        - name: data
+          mountPath: /data/db
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: {{ .Values.mongo.storageSize }}
+      storageClassName: {{ .Values.mongo.storageClass }}
 ---
 apiVersion: v1
 kind: Service
@@ -33,7 +40,7 @@ metadata:
   name: {{ include "chart.fullname" . }}-mongo
   namespace: {{ .Release.Namespace }}
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     app: {{ include "chart.fullname" . }}-mongo
   ports:

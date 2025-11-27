@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "chart.fullname" . }}-mongo-init
+  namespace: {{ .Release.Namespace }}
+  # annotations:
+  #   "helm.sh/hook": post-install,post-upgrade
+  #   "helm.sh/hook-delete-policy": hook-succeeded   
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mongo-init
+          image: {{ .Values.mongo.mongo.image.repository }}:{{ .Values.mongo.mongo.image.tag }}
+          command: ["/bin/sh", "-c"]           
+          args:
+            - |
+             {{ include "mongo.initScript" . | nindent 14 }}

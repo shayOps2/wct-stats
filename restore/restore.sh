@@ -18,7 +18,7 @@ echo "Downloading ${URL}"
 curl -fSL -o "$ARCHIVE" "$URL"
 
 # if Mongo already has data, skip restore
-COUNT=$(mongo --uri "$MONGODB_URL" --quiet --eval "db.adminCommand('listDatabases').databases.length" | tr -d '\r' || echo 0)
+COUNT=$(mongosh --uri "$MONGODB_URL" --quiet --eval "db.adminCommand('listDatabases').databases.length" | tr -d '\r' || echo 0)
 echo "Detected database count: ${COUNT}"
 if [ -n "$COUNT" ] && [ "$COUNT" -gt 1 ]; then
   echo "Mongo already has data, skipping restore"
