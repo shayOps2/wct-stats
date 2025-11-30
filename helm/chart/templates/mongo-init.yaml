@@ -3,9 +3,10 @@ kind: Job
 metadata:
   name: {{ include "chart.fullname" . }}-mongo-init
   namespace: {{ .Release.Namespace }}
-  # annotations:
-  #   "helm.sh/hook": post-install,post-upgrade
-  #   "helm.sh/hook-delete-policy": hook-succeeded   
+  annotations:
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook": post-install
+    "helm.sh/hook-delete-policy": hook-succeeded   
 spec:
   backoffLimit: 2
   template:

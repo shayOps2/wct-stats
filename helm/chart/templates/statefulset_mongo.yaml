@@ -27,6 +27,8 @@ spec:
   volumeClaimTemplates:
   - metadata:
       name: data
+      labels:
+        app: {{ include "chart.fullname" . }}-mongo 
     spec:
       accessModes: ["ReadWriteOnce"]
       resources:

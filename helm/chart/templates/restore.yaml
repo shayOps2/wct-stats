@@ -1,11 +1,26 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongo-restore-script
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation	
+data:
+  restore.sh: |
+{{ include "mongo.restoreScript" . | indent 4 }}
+---
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: mongo-restore
   namespace: {{ .Release.Namespace }}
   annotations:
+    "helm.sh/hook-weight": "5"
     "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed   
+    "helm.sh/hook-delete-policy": hook-succeeded
 spec:
   backoffLimit: 2
   template:
@@ -17,6 +32,10 @@ spec:
       - name: mongo-restore
         image: {{ .Values.mongo.restore.image.repository }}:{{ .Values.mongo.restore.image.tag }}
         imagePullPolicy: {{ .Values.mongo.restore.imagePullPolicy | default "IfNotPresent" | quote }}
+        command: ["/bin/bash", "/scripts/restore.sh"]
+        volumeMounts:
+        - name: restore-script
+          mountPath: /scripts
         envFrom:
         {{- range .Values.backend.envFrom }}
         - secretRef:
@@ -27,4 +46,9 @@ spec:
           - name: {{ .name }}
             value: {{ include "envValue" (dict "env" . "context" $) | quote }}
         {{- end }}
+      volumes:
+      - name: restore-script
+        configMap:
+          name: mongo-restore-script
+          defaultMode: 0755
 

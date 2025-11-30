@@ -65,6 +65,8 @@ mongo:
       value: production
     - name: MONGODB_URL
       value: mongodb://__MONGO_HOST__:27017
+    - name: DATABASE_NAME
+      value: wct_stats
     envFrom:
       - secretRef:
           name: oci-bucket-par
@@ -86,7 +88,6 @@ mongo:
       periodSeconds: 10
       timeoutSeconds: 5
     args:
-      - --bind_ip_all
       - --replSet
       - rs0
     image:
