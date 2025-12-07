@@ -11,6 +11,7 @@ import re
 from database import get_db
 import logging
 
+
 if os.environ.get("ENV", "development") == "development":
     from dotenv import load_dotenv
     load_dotenv()

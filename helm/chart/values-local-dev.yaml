@@ -2,11 +2,23 @@
 # This file can be overridden by providing a custom values file when installing the chart
 
 backend:
+  command: 
+    - uvicorn
+    - --reload
+    - app:app
+    - --port
+    - "8000"
+    - --host
+    - "0.0.0.0"
   image:
     repository: ghcr.io/shayops2/wct-stats-backend
     tag: "v1.0.3"
 
 frontend:
+  ports:
+    - name: "dev"
+      port: 3000
+      targetPort: 3000
   image:
     repository: ghcr.io/shayops2/wct-stats-frontend
     tag: "v1.0.2"

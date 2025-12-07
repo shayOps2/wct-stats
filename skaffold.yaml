@@ -4,15 +4,26 @@ metadata:
   name: wct-stats
 
 build:
+  local:
+    push: false
   artifacts:
     - image: frontend
       context: frontend
+      sync:
+        infer:
+          - 'src/**'
+          - 'public/**'
       docker:
+        target: dev
         buildArgs:
           REACT_APP_BACKEND_URL: "http://backend.localhost"      
         
     - image: backend
+      runtimeType: python
       context: backend
+      sync:
+        infer:
+          - '**/*.py'
 
 deploy:
   helm:

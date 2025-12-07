@@ -1,6 +1,5 @@
 from fastapi import FastAPI, HTTPException
 from routers import players, matches, pins, login, backup, teams
-from database import init_db, setup_database
 import logging
 from cors import add_cors_middleware  
 from slowapi import _rate_limit_exceeded_handler
@@ -15,6 +14,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import secrets
 import string
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -46,8 +46,6 @@ async def lifespan(app: FastAPI):
 
     db = client[DATABASE_NAME]
     try:
-        await init_db(db)
-        await setup_database(db)
         logger.info("Database initialization completed")
         admin = await get_user_by_username(db, "admin")
         if not admin:
@@ -88,3 +86,7 @@ app.include_router(backup.router, tags=["Admin"])
 @app.get("/")
 def root():
     return {"message": "World Chase Tag Stats API"}
+
+@app.get("/favicon.ico", status_code=204)
+async def favicon():
+    return None
