@@ -7,7 +7,6 @@ import asyncio
 from database import get_db
 
 os.environ["DATABASE_NAME"] = "wct_stats_test"
-os.environ["SKIP_DB_WAIT"] = "true"
 TEST_DB_NAME = "wct_stats_test"
 MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
 
