@@ -29,20 +29,23 @@ async def lifespan(app: FastAPI):
     client = AsyncIOMotorClient(MONGODB_URL)
     
     # Wait for database to exist
-    logger.info(f"Waiting for database '{DATABASE_NAME}' to be created...")
-    while True:
-        try:
-            # List databases and check if ours exists
-            dbs = await client.list_database_names()
-            if DATABASE_NAME in dbs:
-                logger.info(f"Database '{DATABASE_NAME}' found.")
-                break
-            logger.info(f"Database '{DATABASE_NAME}' not found yet. Waiting...")
-        except Exception as e:
-            logger.error(f"Error checking for database: {e}")
-        
-        import asyncio
-        await asyncio.sleep(5)
+    if os.getenv("SKIP_DB_WAIT", "false").lower() == "true":
+        logger.info("Skipping database existence check (SKIP_DB_WAIT is set)")
+    else:
+        logger.info(f"Waiting for database '{DATABASE_NAME}' to be created...")
+        while True:
+            try:
+                # List databases and check if ours exists
+                dbs = await client.list_database_names()
+                if DATABASE_NAME in dbs:
+                    logger.info(f"Database '{DATABASE_NAME}' found.")
+                    break
+                logger.info(f"Database '{DATABASE_NAME}' not found yet. Waiting...")
+            except Exception as e:
+                logger.error(f"Error checking for database: {e}")
+            
+            import asyncio
+            await asyncio.sleep(5)
 
     db = client[DATABASE_NAME]
     try:
