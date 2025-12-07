@@ -57,7 +57,13 @@ jobs:
         run: |
           echo "Running tests..."
           cd backend
-          pytest --junit-xml=test-results.xml
+          timeout 180 pytest --junit-xml=test-results.xml | tee pytest.log
+          EXIT_CODE=${PIPESTATUS[0]}
+          if [ $EXIT_CODE -eq 124 ]; then
+            echo "pytest timed out after 3 minutes. Last 40 lines of output:"
+            tail -40 pytest.log
+            exit 124
+          fi
           echo "Tests completed."
     
       - name: Upload test results
@@ -143,5 +149,5 @@ jobs:
         with:
           branch: main                       
           commit_message: "Bump backend version to ${{ env.VERSION }} [skip ci]"
-          pull_args: --rebase -X theirs            
+          pull_args: --rebase -X theirs
 
