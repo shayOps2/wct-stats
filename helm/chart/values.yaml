@@ -2,7 +2,7 @@
 # This file can be overridden by providing a custom values file when installing the chart
 
 backend:
-  command: 
+  command:
     - gunicorn
     - app:app
     - -c
@@ -65,12 +65,12 @@ mongo:
   # mongoDB restore job configuration
   restore:
     env:
-    - name: ENV
-      value: production
-    - name: MONGODB_URL
-      value: mongodb://__MONGO_HOST__:27017
-    - name: DATABASE_NAME
-      value: wct_stats
+      - name: ENV
+        value: production
+      - name: MONGODB_URL
+        value: mongodb://__MONGO_HOST__:27017
+      - name: DATABASE_NAME
+        value: wct_stats
     envFrom:
       - secretRef:
           name: oci-bucket-par
@@ -78,7 +78,7 @@ mongo:
       - name: regcred
     image:
       repository: ghcr.io/shayops2/wct-stats-mongo-restore
-      tag: "2.5"
+      tag: "2.6"
     imagePullPolicy: IfNotPresent
   # mongoDB main deployment configuration
   mongo:
