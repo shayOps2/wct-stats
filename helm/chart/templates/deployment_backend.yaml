@@ -16,13 +16,18 @@ spec:
       imagePullSecrets: 
 {{- toYaml .Values.backend.imagePullSecrets | nindent 8 }}
       containers:
-      - args: {{- toYaml .Values.backend.args | nindent 8 }}
+      - image: {{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}
+        {{- if .Values.backend.args }}
+        args: {{- toYaml .Values.backend.args | nindent 8 }}
+        {{- end }}
+        {{- if .Values.backend.command }}
         command: {{- toYaml .Values.backend.command | nindent 8 }}
+        {{- end }}
         env:
         {{- range .Values.backend.env }}
-        - name: {{ .name }}
-          value: {{ .value | replace "__MONGO_HOST__" (printf "%s-mongo" (include "chart.fullname" $)) | quote }}
-        {{- end }}
+          - name: {{ .name }}
+            value: {{ include "envValue" (dict "env" . "context" $) | quote }}
+        {{- end }}        
         {{- if .Values.backend.envFrom }}
         envFrom:
         {{- range .Values.backend.envFrom }}
@@ -30,7 +35,6 @@ spec:
             name: {{ .secretRef.name }}
         {{- end }}
         {{- end }}
-        image: {{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}
         name: backend
         ports:
         - containerPort: {{ (index .Values.backend.ports 0).targetPort }}

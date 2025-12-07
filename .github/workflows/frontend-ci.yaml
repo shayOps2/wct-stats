@@ -70,6 +70,7 @@ jobs:
             REACT_APP_BACKEND_URL=https://backend.cheetoh-gila.ts.net
           context: frontend
           push: true
+          target: production
           no-cache: true
           tags: |
             ghcr.io/shayops2/wct-stats-frontend:latest 

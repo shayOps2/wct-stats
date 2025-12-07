@@ -1,0 +1,68 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mongo-pvc-cleanup
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-delete-policy": hook-succeeded
+    "helm.sh/hook-weight": "2"
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: cleanup-sa
+      containers:
+      - name: cleanup
+        image: bitnami/kubectl
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Deleting old MongoDB PVCs..."
+          echo "app={{ include "chart.fullname" . }}-mongo"
+          if kubectl get pvc -l app={{ include "chart.fullname" . }}-mongo > /dev/null 2>&1; then
+            kubectl delete pvc -l app={{ include "chart.fullname" . }}-mongo || true
+          fi
+          echo "Done."
+---          
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cleanup-sa
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+    "helm.sh/hook-weight": "1"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cleanup-role
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+    "helm.sh/hook-weight": "1"
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "delete", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cleanup-rolebinding
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+    "helm.sh/hook-weight": "1"
+subjects:
+  - kind: ServiceAccount
+    name: cleanup-sa
+roleRef:
+  kind: Role
+  name: cleanup-role
+  apiGroup: rbac.authorization.k8s.io

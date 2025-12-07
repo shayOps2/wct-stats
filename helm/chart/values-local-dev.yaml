@@ -2,11 +2,23 @@
 # This file can be overridden by providing a custom values file when installing the chart
 
 backend:
+  command: 
+    - uvicorn
+    - --reload
+    - app:app
+    - --port
+    - "8000"
+    - --host
+    - "0.0.0.0"
   image:
     repository: ghcr.io/shayops2/wct-stats-backend
     tag: "v1.0.3"
 
 frontend:
+  ports:
+    - name: "dev"
+      port: 3000
+      targetPort: 3000
   image:
     repository: ghcr.io/shayops2/wct-stats-frontend
     tag: "v1.0.2"
@@ -14,6 +26,7 @@ frontend:
 
 
 ingress:
+  ingressClassName: traefik
   enabled: true
   annotations:
     enabled_annotations: false
@@ -21,27 +34,12 @@ ingress:
     host: backend.localhost
     paths:
       - /
-    className: traefik
   frontend:
     host: frontend.localhost
     paths:
       - /
-    className: traefik
 
 mongo:
-  # mongoDB restore job configuration
-  restore:
-    env:
-      - name: ENV
-        value: production
-      - name: MONGO_HOST
-        value: mongodb://__MONGO_HOST__:27017  
-    envFrom:
-      - secretRef:
-          name: oci-bucket-par
-    imagePullSecrets:
-      - name: regcred
-    image:
-      repository: ghcr.io/shayops2/wct-stats-mongo-restore
-      tag: "2.4"
-    imagePullPolicy: IfNotPresent
+  replicas: 3
+  storageSize: 5Gi
+  storageClass: local-path

@@ -21,3 +21,9 @@ COPY default.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
+
+FROM builder AS dev
+WORKDIR /app
+COPY . .
+EXPOSE 3000
+CMD ["npm", "start"]
