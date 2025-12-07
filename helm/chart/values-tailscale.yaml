@@ -8,7 +8,7 @@ backend:
 frontend:
   image:
     repository: ghcr.io/shayops2/wct-stats-frontend
-    tag: "v1.1.6"
+    tag: "v1.1.7"
 ingress:
   ingressClassName: tailscale
   enabled: true
