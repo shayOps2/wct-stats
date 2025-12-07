@@ -23,3 +23,7 @@ ingress:
     host: wct.cheetoh-gila.ts.net
     paths:
       - /
+mongo:
+  replicas: 2
+  storageSize: 15Gi
+  storageClass: oci-bv
