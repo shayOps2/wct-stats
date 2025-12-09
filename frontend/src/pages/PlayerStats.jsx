@@ -9,13 +9,11 @@ import {
   DatePicker,
   Button,
   Divider,
-  Select
 } from "antd";
 import { useNavigate } from "react-router-dom";
 import { BACKEND_URL } from "../config"; // Import the constant
 
 const { RangePicker } = DatePicker;
-const { Option } = Select;
 
 function PlayerStats() {
   const navigate = useNavigate();

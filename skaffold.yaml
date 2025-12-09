@@ -9,14 +9,10 @@ build:
   artifacts:
     - image: frontend
       context: frontend
-      sync:
-        infer:
-          - 'src/**'
-          - 'public/**'
       docker:
         target: dev
         buildArgs:
-          REACT_APP_BACKEND_URL: "http://backend.localhost"      
+          VITE_BACKEND_URL: "http://backend.localhost"      
         
     - image: backend
       runtimeType: python

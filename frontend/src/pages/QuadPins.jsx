@@ -15,21 +15,6 @@ import { BACKEND_URL } from "../config"; // Import the constant
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 
-// Match the dimensions used in the form where pins are created
-const FORM_IMAGE_WIDTH = 400;  // From maxWidth in Matches.js
-const DISPLAY_IMAGE_WIDTH = 800; // From maxWidth in QuadPins.js
-
-// Utility function to convert coordinates
-const convertCoordinates = (pin) => {
-  if (!pin.location) return null;
-
-  // Convert from form coordinates (400px wide) to percentage
-  const x = (pin.location.x / FORM_IMAGE_WIDTH) * 100;
-  const y = (pin.location.y / FORM_IMAGE_WIDTH) * 100; // Use width for both to maintain aspect ratio
-
-  return { x, y };
-};
-
 function QuadPins() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

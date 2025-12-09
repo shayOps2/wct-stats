@@ -15,11 +15,19 @@ def document_to_user(doc):
         hashed_password=doc["hashed_password"],
         role=doc.get("role", "User"),
         team_id=doc.get("team_id"),
-        created_at=doc.get("created_at")
+        created_at=doc.get("created_at"),
+        failed_attempts=doc.get("failed_attempts", 0),
+        locked=doc.get("locked", False),
+        locked_until=doc.get("locked_until")
+
     )
 
 def user_to_document(user: User):
     doc = user.model_dump(exclude_unset=True)
+    # Always include lockout fields for updates
+    doc["failed_attempts"] = getattr(user, "failed_attempts", 0)
+    doc["locked"] = getattr(user, "locked", False)
+    doc["locked_until"] = getattr(user, "locked_until", None)
     if "id" in doc:
         doc["_id"] = bson.ObjectId(doc.pop("id"))
     return doc
@@ -33,6 +41,25 @@ async def add_user(db, user: User):
     result = await db["users"].insert_one(doc)
     user.id = str(result.inserted_id)
     return user
+
+async def update_user(db, user: User):
+    """
+    Update an existing user in the database by _id.
+    """
+    doc = user_to_document(user)
+    user_id = doc.pop("_id", None)
+    if not user_id:
+        # fallback to username if no id
+        result = await db["users"].update_one(
+            {"username": user.username},
+            {"$set": doc}
+        )
+    else:
+        result = await db["users"].update_one(
+            {"_id": user_id},
+            {"$set": doc}
+        )
+    return result.modified_count > 0
 
 def player_helper(player) -> dict:
     return {
