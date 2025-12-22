@@ -6,24 +6,26 @@ metadata:
 build:
   local:
     push: false
+    useBuildkit: true
   artifacts:
-    - image: frontend
+    - image: ghcr.io/shayops2/wct-stats-frontend
       context: frontend
       sync:
         infer:
-          - 'src/**'
-          - 'public/**'
+          - "src/**/*.ts"
+          - "src/**/*.tsx"
+          - "public/**"
       docker:
         target: dev
         buildArgs:
-          REACT_APP_BACKEND_URL: "http://backend.localhost"      
-        
-    - image: backend
-      runtimeType: python
+          VITE_BACKEND_URL: "http://backend.localhost"
+
+    - image: ghcr.io/shayops2/wct-stats-backend
       context: backend
+      runtimeType: python
       sync:
         infer:
-          - '**/*.py'
+          - "**/*.py"
 
 deploy:
   helm:
@@ -31,12 +33,7 @@ deploy:
       - name: wct
         chartPath: helm/chart
         setValueTemplates:
-          frontend.image.repository: "{{.IMAGE_REPO_frontend}}"
-          frontend.image.tag: "{{.IMAGE_TAG_frontend}}"
-          
-          backend.image.repository: "{{.IMAGE_REPO_backend}}"
-          backend.image.tag: "{{.IMAGE_TAG_backend}}"
-
+          frontend.image.tag: "{{.IMAGE_TAG_ghcr_io_shayops2_wct_stats_frontend}}"
+          backend.image.tag: "{{.IMAGE_TAG_ghcr_io_shayops2_wct_stats_backend}}"
         valuesFiles:
           - helm/chart/values-local-dev.yaml
-          

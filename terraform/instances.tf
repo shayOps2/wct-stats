@@ -97,5 +97,5 @@ resource "oci_core_instance" "talos_worker2" {
   freeform_tags = {
     talos = "true"
   }
-  display_name = "talos-worker"
+  display_name = "talos-worker2"
 }

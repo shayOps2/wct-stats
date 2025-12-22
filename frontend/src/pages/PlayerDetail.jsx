@@ -8,7 +8,6 @@ import {
   Select,
   DatePicker,
   Button,
-  Divider,
   Statistic,
   Tooltip,
   Empty,
@@ -250,7 +249,7 @@ function PlayerDetail() {
     } finally {
       setLoadingPins(false);
     }
-  }, [selectedPlayer, selectedOpponent, matchType, dateRange]);
+  }, [selectedPlayer, selectedOpponent, matchType, dateRange, players]);
 
   // Fetch pins when a player is selected
   useEffect(() => {

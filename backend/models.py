@@ -64,3 +64,6 @@ class User(BaseModel):
     role: UserRole = UserRole.user
     team_id: Optional[str] = None
     created_at: Optional[datetime] = None
+    failed_attempts: int = 0
+    locked: bool = False
+    locked_until: Optional[datetime] = None
