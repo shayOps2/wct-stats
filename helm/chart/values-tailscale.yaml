@@ -4,7 +4,7 @@
 backend:
   image:
     repository: ghcr.io/shayops2/wct-stats-backend
-    tag: "v1.1.0"
+    tag: "v1.1.1"
 frontend:
   image:
     repository: ghcr.io/shayops2/wct-stats-frontend
