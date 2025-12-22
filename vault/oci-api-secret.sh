@@ -29,10 +29,14 @@ kubectl get namespace "$NAMESPACE" >/dev/null 2>&1 || \
   kubectl create namespace "$NAMESPACE"
 
 echo "Creating secret..."
-kubectl create secret generic "$SECRET_NAME" \
-  --namespace "$NAMESPACE" \
-  --from-literal=fingerprint="$FINGERPRINT" \
-  --from-file=privateKey="$PRIVATE_KEY_PATH"
+if kubectl get secret "$SECRET_NAME" -n "$NAMESPACE" >/dev/null 2>&1; then
+  echo "Secret '$SECRET_NAME' already exists in namespace '$NAMESPACE'."
+else
+  kubectl create secret generic "$SECRET_NAME" \
+    --namespace "$NAMESPACE" \
+    --from-literal=fingerprint="$FINGERPRINT" \
+    --from-file=privateKey="$PRIVATE_KEY_PATH"
+fi
 
 if [[ $? -ne 0 ]]; then
   echo "Error: Failed to create secret."
