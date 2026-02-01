@@ -11,7 +11,9 @@ Create a secret:
   --from-file=config.yaml=cloud-provider-example.yaml```
 
 tag clutser nodes with instances' <region>-<Availability domain> 
-''' kubectl label node talos-worker topology.kubernetes.io/zone=il-jerusalem-1-AD-1 --overwrite '''
+``` kubectl label node <talos-worker-nodes> topology.kubernetes.io/zone=IL-JERUSALEM-1-AD-1 --overwrite ```
+``` kubectl label node  <talos-worker-nodes> failure-domain.beta.kubernetes.io/zone=IL-JERUSALEM-1-AD-1 --overwrite ```
+``` kubectl label node <talos-worker-nodes> failure-domain.beta.kubernetes.io/region=IL-JERUSALEM-1 --overwrite ```
 
 apply all yaml manifests files in oci-csi-driver folder
 test dynamic provisioning with 'test-storage-class.yaml' file

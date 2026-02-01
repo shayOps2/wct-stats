@@ -1,0 +1,2 @@
+final verdict for oci-bv using talos-
+oci-sci is using shell commands to mount. this is NOT supported on talosOS, need to replcae oci-bv or revert to deployment mongodb

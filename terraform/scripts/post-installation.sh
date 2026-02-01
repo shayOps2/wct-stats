@@ -32,7 +32,7 @@ done
 echo "Connected to talos cluster."
 
 echo "writing oci-csi-driver cloud provider config..."
-cat << EOF > oci-csi-driver/cloud-provider.yaml
+cat << EOF > oci-csi-driver/provider-config-instance-principals.yaml
 useInstancePrincipals: true
 
 compartment: $COMPARTMENT_ID
@@ -47,7 +47,8 @@ EOF
 
 kubectl  create secret generic oci-volume-provisioner \
   -n kube-system                                       \
-  --from-file=config.yaml=oci-csi-driver/cloud-provider.yaml
+  --from-file=config.yaml=oci-csi-driver/provider-config-instance-principals.yaml
+
 
 echo "OCI CSI Driver cloud provider config written."
 echo "Applying OCI CSI Driver manifests..."
@@ -57,6 +58,15 @@ kubectl apply -f oci-csi-driver/oci-csi-node-driver.yaml
 kubectl apply -f oci-csi-driver/oci-csi-controller-driver.yaml
 echo "OCI CSI Driver manifests applied."
 
+
+echo "labeling nodes for OCI CSI Driver..."
+nodes=$(kubectl get nodes -o name | cut -d'/' -f2 | grep talos-worker)
+for node in $nodes; do
+  kubectl label node $node topology.kubernetes.io/zone=IL-JERUSALEM-1-AD-1 --overwrite
+  kubectl label node $node failure-domain.beta.kubernetes.io/zone=IL-JERUSALEM-1-AD-1 --overwrite
+  kubectl label node $node failure-domain.beta.kubernetes.io/region=IL-JERUSALEM-1 --overwrite
+done
+echo "Nodes labeled."
 
 echo "Setting up Tailscale..."
 if helm list -A | grep -q tailscale-operator; then
