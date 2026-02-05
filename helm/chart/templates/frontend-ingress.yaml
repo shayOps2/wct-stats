@@ -4,22 +4,38 @@ kind: Ingress
 metadata:
   name: {{ include "chart.fullname" . }}-frontend-ingress
   namespace: {{ .Release.Namespace }}
+  {{- if and .Values.ingress.annotations .Values.ingress.annotations.enabled_annotations }}
+  annotations:
+    {{- range $k, $v := .Values.ingress.annotations }}
+    {{- if ne $k "enabled_annotations" }}
+    {{ $k }}: {{ $v | toString | quote }}
+    {{- end }}
+    {{- end }}
+  {{- end }}
 spec:
   ingressClassName: {{ .Values.ingress.ingressClassName }}
-  {{- if eq .Values.ingress.frontend.className "tailscale" }}
+  {{- if eq .Values.ingress.ingressClassName "tailscale" }}
   tls:
     - hosts:
-      - {{ .Values.ingress.frontend.host }}
-  {{- end }}
+        - {{ .Values.ingress.frontend.host }}
+  defaultBackend:
+    service:
+      name: {{ include "chart.fullname" . }}-frontend
+      port:
+        number: {{ (index .Values.frontend.ports 0).port }}
+  {{- else }}
   rules:
-  - host: {{ .Values.ingress.frontend.host }}
-    http:
-      paths:
-      - backend:
-          service:
-            name: {{ include "chart.fullname" . }}-frontend
-            port:
-              number: {{ (index .Values.frontend.ports 0).port}}
-        path: /
-        pathType: Prefix
+    - host: {{ .Values.ingress.frontend.host }}
+      http:
+        paths:
+          {{- range .Values.ingress.frontend.paths }}
+          - backend:
+              service:
+                name: {{ include "chart.fullname" . }}-frontend
+                port:
+                  number: {{ (index $.Values.frontend.ports 0).port }}
+            path: {{ . }}
+            pathType: Prefix
+          {{- end }}
+  {{- end }}
 {{- end }}

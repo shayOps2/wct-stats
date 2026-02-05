@@ -11,13 +11,16 @@ spec:
   source:
     repoURL: https://charts.longhorn.io
     chart: longhorn
-    # Pick a chart version that matches your Longhorn release.
-    # Example: 1.6.4 (adjust as needed)
-    targetRevision: 1.6.4
+    targetRevision: 1.11.0
     helm:
       values: |
         persistence:
           defaultClass: true
+
+        # Longhorn chart recommendation for Argo CD / GitOps installs.
+        # Prevents creation of the helm-hook pre-upgrade Job that can fail ordering.
+        preUpgradeChecker:
+          jobEnabled: false
 
   destination:
     server: https://kubernetes.default.svc

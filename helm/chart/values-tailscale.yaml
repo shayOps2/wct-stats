@@ -16,11 +16,11 @@ ingress:
     enabled_annotations: true
     tailscale.com/funnel: "true"
   backend:
-    host: backend.cheetoh-gila.ts.net
+    host: backend
     paths:
       - /
   frontend:
-    host: wct.cheetoh-gila.ts.net
+    host: wct
     paths:
       - /
 mongo:
