@@ -1,2 +1,6 @@
-final verdict for oci-bv using talos-
-oci-sci is using shell commands to mount. this is NOT supported on talosOS, need to replcae oci-bv or revert to deployment mongodb
+- argocd doesnt work well with hooks.
+ argocd sees template manifest and deploys it in symc. 
+pre install hook should only run once on first installation
+
+to solve: decouple mongodb from chart. maybe no argocd needed for mongo?
+include mongodb gate for backend?
