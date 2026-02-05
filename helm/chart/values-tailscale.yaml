@@ -26,4 +26,4 @@ ingress:
 mongo:
   replicas: 2
   storageSize: 15Gi
-  storageClass: oci-bv
+  storageClass: longhorn

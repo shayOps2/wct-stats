@@ -11,8 +11,6 @@ if [[ -f ".env" ]]; then
 fi
 LB_IP=$(terraform output -raw load_balancer_ip)
 NODE_IP=$(terraform output -raw controlplane_private_ip)
-VCN=$(terraform output -raw vcn_id)
-SUBNET1=$(terraform output -raw subnet_id)
 
 # if talos cluster is not set up, set it up
 talosctl --talosconfig talosconfig config endpoint $LB_IP
@@ -31,42 +29,7 @@ until kubectl get nodes &> /dev/null; do
 done
 echo "Connected to talos cluster."
 
-echo "writing oci-csi-driver cloud provider config..."
-cat << EOF > oci-csi-driver/provider-config-instance-principals.yaml
-useInstancePrincipals: true
-
-compartment: $COMPARTMENT_ID
-
-vcn: $VCN
-
-loadBalancer:
-  subnet1: $SUBNET1
-  subnet2: $SUBNET2
-  securityListManagementMode: All
-EOF
-
-kubectl  create secret generic oci-volume-provisioner \
-  -n kube-system                                       \
-  --from-file=config.yaml=oci-csi-driver/provider-config-instance-principals.yaml
-
-
-echo "OCI CSI Driver cloud provider config written."
-echo "Applying OCI CSI Driver manifests..."
-kubectl apply -f oci-csi-driver/storage-class.yaml
-kubectl apply -f oci-csi-driver/oci-csi-node-rbac.yaml
-kubectl apply -f oci-csi-driver/oci-csi-node-driver.yaml
-kubectl apply -f oci-csi-driver/oci-csi-controller-driver.yaml
-echo "OCI CSI Driver manifests applied."
-
-
-echo "labeling nodes for OCI CSI Driver..."
-nodes=$(kubectl get nodes -o name | cut -d'/' -f2 | grep talos-worker)
-for node in $nodes; do
-  kubectl label node $node topology.kubernetes.io/zone=IL-JERUSALEM-1-AD-1 --overwrite
-  kubectl label node $node failure-domain.beta.kubernetes.io/zone=IL-JERUSALEM-1-AD-1 --overwrite
-  kubectl label node $node failure-domain.beta.kubernetes.io/region=IL-JERUSALEM-1 --overwrite
-done
-echo "Nodes labeled."
+echo "Skipping OCI CSI driver install (Longhorn is used instead)."
 
 echo "Setting up Tailscale..."
 if helm list -A | grep -q tailscale-operator; then

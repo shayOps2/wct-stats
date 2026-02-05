@@ -75,4 +75,3 @@ talosconfig
 controlplane.yaml
 worker.yaml
 cloud-provider*.yaml
-provider-config-instance-principals*.yaml
