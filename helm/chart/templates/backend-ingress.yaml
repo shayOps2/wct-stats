@@ -1,4 +1,5 @@
 {{- if .Values.ingress.enabled }}
+{{- $root := . }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -31,9 +32,9 @@ spec:
           {{- range .Values.ingress.backend.paths }}
           - backend:
               service:
-                name: {{ include "chart.fullname" . }}-backend
+                name: {{ include "chart.fullname" $root }}-backend
                 port:
-                  number: {{ (index $.Values.backend.ports 0).port }}
+                  number: {{ (index $root.Values.backend.ports 0).port }}
             path: {{ . }}
             pathType: Prefix
           {{- end }}

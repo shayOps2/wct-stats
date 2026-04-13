@@ -10,6 +10,7 @@ import Layout from "./components/Layout";
 import { ConfigProvider } from 'antd';
 import { getTheme } from './theme';
 import 'antd/dist/reset.css';
+import './App.css';
 import Login from "./pages/login";
 import Register from "./pages/Register";
 

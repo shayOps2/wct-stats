@@ -9,10 +9,11 @@ export default function MatchCard({ match, selected, onClick, onDelete, onEditDa
 
   return (
     <Card
+      className="match-card"
       hoverable
       onClick={onClick}
       style={{
-        width: 320,
+        width: '100%',
         borderColor: selected ? token.colorPrimary : undefined,
         borderWidth: selected ? 2 : 1,
       }}
@@ -28,7 +29,7 @@ export default function MatchCard({ match, selected, onClick, onDelete, onEditDa
       ]}
       title={
         <Space direction="vertical" size={0} style={{ width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <Tag color="blue">{match.match_type.toUpperCase()}</Tag>
             {match.is_sudden_death && <Tag color="red">SUDDEN DEATH</Tag>}
           </div>

@@ -231,10 +231,10 @@ function PlayerStats() {
   }
 
   return (
-    <div style={{ padding: 24 }}>
-      <h2>Player Statistics</h2>
+    <div className="page-shell">
+      <h2 className="page-title">Player Statistics</h2>
 
-      <Card bordered={false} style={{ marginBottom: 24 }}>
+      <Card bordered={false} className="page-filter-card">
         <Row gutter={[16, 16]} align="middle">
           <Col xs={24} sm={12}>
             <RangePicker
@@ -248,25 +248,26 @@ function PlayerStats() {
             />
           </Col>
           <Col xs={24} sm={12}>
-            <Button
-              type="primary"
-              onClick={applyFilters}
-              loading={applyingFilters}
-              style={{ marginRight: 8 }}
-            >
-              Apply Filters
-            </Button>
-            {dateRange && (
-              <Button onClick={clearFilters}>
-                Clear Filters
+            <div className="page-actions">
+              <Button
+                type="primary"
+                onClick={applyFilters}
+                loading={applyingFilters}
+              >
+                Apply Filters
               </Button>
-            )}
+              {dateRange && (
+                <Button onClick={clearFilters}>
+                  Clear Filters
+                </Button>
+              )}
+            </div>
           </Col>
 
           {/* Active filters display */}
           {dateRange && dateRange[0] && (
             <Col xs={24}>
-              <div style={{ marginTop: '8px', padding: '8px', background: '#f9f9f9', borderRadius: '4px' }}>
+              <div className="active-filter-summary">
                 <b>Date Range:</b> {dateRange[0].format('MMM D, YYYY')}
                 {dateRange[1] ? ` to ${dateRange[1].format('MMM D, YYYY')}` : ' to Today'}
               </div>
@@ -284,13 +285,15 @@ function PlayerStats() {
             <Spin size="large" />
           </div>
         ) : (
-          <Table
-            dataSource={playersWithStats}
-            columns={playerStatsColumns}
-            rowKey="id"
-            scroll={{ x: 'max-content' }}
-            pagination={{ pageSize: 10 }}
-          />
+          <div className="table-scroll-container">
+            <Table
+              dataSource={playersWithStats}
+              columns={playerStatsColumns}
+              rowKey="id"
+              scroll={{ x: 'max-content' }}
+              pagination={{ pageSize: 10, responsive: true, showSizeChanger: false }}
+            />
+          </div>
         )}
       </Card>
     </div>

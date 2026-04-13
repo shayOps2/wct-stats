@@ -17,7 +17,7 @@ function Home({ setUser }) {
   };
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="page-shell">
       <Card>
         <Typography>
           <Title level={2}>Welcome to World Chase Tag Statistics</Title>

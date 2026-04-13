@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Layout as AntLayout, Menu, Button, theme, Avatar, Dropdown, Switch } from 'antd';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Layout as AntLayout, Menu, Button, theme, Avatar, Dropdown, Switch, Drawer, Grid, Typography } from 'antd';
+import { Link, useLocation } from 'react-router-dom';
 import {
   MenuUnfoldOutlined,
   MenuFoldOutlined,
@@ -16,11 +16,19 @@ import {
 } from '@ant-design/icons';
 
 const { Header, Sider, Content } = AntLayout;
+const { useBreakpoint } = Grid;
+const { Text } = Typography;
+const LG_BREAKPOINT_WIDTH = 992;
 
 const Layout = ({ children, isDarkMode, toggleTheme }) => {
-  const [collapsed, setCollapsed] = useState(false);
+  const screens = useBreakpoint();
+  const hasResolvedBreakpoints = Object.keys(screens).length > 0;
+  const isMobile = hasResolvedBreakpoints
+    ? screens.lg === false
+    : typeof window !== 'undefined' && window.innerWidth < LG_BREAKPOINT_WIDTH;
+  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
@@ -35,13 +43,20 @@ const Layout = ({ children, isDarkMode, toggleTheme }) => {
     window.location.href = "/";
   };
 
-  const userMenu = (
-    <Menu>
-      <Menu.Item key="logout" icon={<LogoutOutlined />} onClick={handleLogout}>
-        Logout
-      </Menu.Item>
-    </Menu>
-  );
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [isMobile, location.pathname]);
+
+  const userMenu = {
+    items: [
+      {
+        key: 'logout',
+        icon: <LogoutOutlined />,
+        label: 'Logout',
+        onClick: handleLogout,
+      },
+    ],
+  };
 
   const menuItems = [
     {
@@ -81,42 +96,70 @@ const Layout = ({ children, isDarkMode, toggleTheme }) => {
     ] : []),
   ];
 
+  const navigationMenu = (
+    <>
+      <div className="app-shell__logo">WCT Stats</div>
+      <Menu
+        theme={isMobile ? 'light' : 'dark'}
+        mode="inline"
+        selectedKeys={[location.pathname]}
+        items={menuItems}
+        onClick={() => {
+          if (isMobile) {
+            setMobileNavOpen(false);
+          }
+        }}
+      />
+    </>
+  );
+
   return (
-    <AntLayout style={{ minHeight: '100vh' }}>
-      <Sider trigger={null} collapsible collapsed={collapsed} breakpoint="lg" onBreakpoint={(broken) => { if (broken) setCollapsed(true); }}>
-        <div className="demo-logo-vertical" style={{ height: 32, margin: 16, background: 'rgba(255, 255, 255, 0.2)', borderRadius: 6 }} />
-        <Menu
-          theme="dark"
-          mode="inline"
-          selectedKeys={[location.pathname]}
-          items={menuItems}
-        />
-      </Sider>
-      <AntLayout>
-        <Header style={{ padding: 0, background: colorBgContainer, display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: 24 }}>
-          <Button
-            type="text"
-            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={() => setCollapsed(!collapsed)}
-            style={{
-              fontSize: '16px',
-              width: 64,
-              height: 64,
-            }}
-          />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+    <AntLayout className="app-shell">
+      {!isMobile && (
+        <Sider
+          className="app-shell__sider"
+          trigger={null}
+          collapsible
+          collapsed={desktopCollapsed}
+          width={240}
+        >
+          {navigationMenu}
+        </Sider>
+      )}
+
+      <AntLayout className="app-shell__main">
+        <Header className="app-shell__header" style={{ background: colorBgContainer }}>
+          <div className="app-shell__header-left">
+            <Button
+              type="text"
+              icon={isMobile ? (mobileNavOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />) : (desktopCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />)}
+              onClick={() => {
+                if (isMobile) {
+                  setMobileNavOpen((open) => !open);
+                  return;
+                }
+
+                setDesktopCollapsed((value) => !value);
+              }}
+              className="app-shell__trigger"
+            />
+            <Text className="app-shell__title">World Chase Tag Stats</Text>
+          </div>
+
+          <div className="app-shell__header-right">
             <Switch
               checkedChildren={<BulbFilled />}
               unCheckedChildren={<BulbOutlined />}
               checked={isDarkMode}
               onChange={toggleTheme}
             />
+
             {user ? (
-              <Dropdown overlay={userMenu} placement="bottomRight">
-                <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Dropdown menu={userMenu} placement="bottomRight" trigger={["click"]}>
+                <button type="button" className="app-shell__user-button">
                   <Avatar icon={<UserOutlined />} src={user.image} />
-                  <span style={{ fontWeight: 500 }}>{user.username}</span>
-                </div>
+                  <span className="app-shell__username">{user.username}</span>
+                </button>
               </Dropdown>
             ) : (
               <Link to="/login">
@@ -125,19 +168,33 @@ const Layout = ({ children, isDarkMode, toggleTheme }) => {
             )}
           </div>
         </Header>
-        <Content
-          style={{
-            margin: '24px 16px',
-            padding: 24,
-            minHeight: 280,
-            background: colorBgContainer,
-            borderRadius: borderRadiusLG,
-            overflow: 'initial'
-          }}
-        >
-          {children}
+
+        <Content className="app-shell__content">
+          <div
+            className="app-shell__content-inner"
+            style={{
+              background: colorBgContainer,
+              borderRadius: borderRadiusLG,
+            }}
+          >
+            {children}
+          </div>
         </Content>
       </AntLayout>
+
+      {isMobile && (
+        <Drawer
+          title="Navigation"
+          placement="left"
+          width={280}
+          open={mobileNavOpen}
+          onClose={() => setMobileNavOpen(false)}
+          className="app-shell__drawer"
+          styles={{ body: { padding: 0 } }}
+        >
+          {navigationMenu}
+        </Drawer>
+      )}
     </AntLayout>
   );
 };
