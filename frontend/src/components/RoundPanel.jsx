@@ -23,6 +23,7 @@ export default function RoundPanel(props) {
     setShowRounds,
     currentMatchPins,
     setCurrentMatchPins,
+    isCompact,
   } = props;
 
   // Auto-select evader/chaser based on previous rounds
@@ -335,10 +336,10 @@ export default function RoundPanel(props) {
 
   return (
     <Card
+      className="round-panel"
       title="Manage Rounds"
-      style={{ flex: 1, minWidth: 300 }}
       extra={
-        <Space>
+        <Space wrap className="round-panel__toolbar">
           <Button
             type="text"
             icon={showRounds ? <EyeInvisibleOutlined /> : <EyeOutlined />}
@@ -357,7 +358,7 @@ export default function RoundPanel(props) {
         </Space>
       }
     >
-      <div style={{ marginBottom: 16, textAlign: 'center' }}>
+      <div className="round-panel__match-title">
         <Title level={4} style={{ margin: 0 }}>
           {selectedMatch.match_type === "team"
             ? `${selectedMatch.team1_name || generateTeamName(selectedMatch.team1_players.map(p => p.id))} vs ${selectedMatch.team2_name || generateTeamName(selectedMatch.team2_players.map(p => p.id))}`
@@ -367,7 +368,7 @@ export default function RoundPanel(props) {
 
       <Form layout="vertical" onFinish={handleAddRound}>
         <Row gutter={16}>
-          <Col span={12}>
+          <Col xs={24} md={12}>
             <Form.Item label="Evader" required>
               {selectedMatch.match_type === '1v1' ? (
                 <Select
@@ -415,7 +416,7 @@ export default function RoundPanel(props) {
               )}
             </Form.Item>
           </Col>
-          <Col span={12}>
+          <Col xs={24} md={12}>
             <Form.Item label="Chaser" required>
               {selectedMatch.match_type === '1v1' ? (
                 <Input
@@ -496,7 +497,7 @@ export default function RoundPanel(props) {
         )}
 
         <Form.Item label="Timestamp">
-          <Space>
+          <div className="round-panel__timestamp">
             <InputNumber
               value={roundData.round_hour || 0}
               onChange={(val) => setRoundData({ ...roundData, round_hour: val || 0 })}
@@ -518,7 +519,7 @@ export default function RoundPanel(props) {
               placeholder="SS"
               style={{ width: 70 }}
             />
-          </Space>
+          </div>
         </Form.Item>
 
         <Form.Item>
@@ -547,7 +548,7 @@ export default function RoundPanel(props) {
               return (
                 <List.Item>
                   <Card size="small" style={{ width: '100%' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <div className="round-panel__list-header">
                       <div>
                         <Text strong>Round {idx + 1}</Text>
                         <br />
@@ -615,27 +616,27 @@ export default function RoundPanel(props) {
                               }}
                             />
                           </div>
-                          <Space>
+                          <div className="round-panel__edit-actions">
                             <Button size="small" onClick={() => setEditingRound({ ...editingRound, pinLocation: null })}>Clear Pin</Button>
                             <Button size="small" type="primary" onClick={handleUpdatePinLocation}>Save Pin</Button>
-                          </Space>
-                          <Space style={{ marginTop: 8 }}>
+                          </div>
+                          <div className="round-panel__edit-actions" style={{ marginTop: 8 }}>
                             <Button type="primary" onClick={handleEditTagTime}>Save Tag Time</Button>
                             <Button onClick={() => setEditingRound(null)}>Cancel</Button>
-                          </Space>
+                          </div>
                         </Space>
                       </Card>
                     )}
 
                     {isTimeEditing && (
                       <Card type="inner" title="Edit Timestamp" size="small">
-                        <Space>
+                        <div className="round-panel__edit-time">
                           <InputNumber value={editingRoundTime.hour || 0} onChange={(val) => setEditingRoundTime({ ...editingRoundTime, hour: val || 0 })} min={0} placeholder="HH" style={{ width: 60 }} />
                           <InputNumber value={editingRoundTime.minute || 0} onChange={(val) => setEditingRoundTime({ ...editingRoundTime, minute: val || 0 })} min={0} max={59} placeholder="MM" style={{ width: 60 }} />
                           <InputNumber value={editingRoundTime.second || 0} onChange={(val) => setEditingRoundTime({ ...editingRoundTime, second: val || 0 })} min={0} max={59} placeholder="SS" style={{ width: 60 }} />
                           <Button type="primary" onClick={() => handleUpdateRoundTime(selectedMatch.id, idx, editingRoundTime)}>Save</Button>
                           <Button onClick={() => setEditingRoundTime(null)}>Cancel</Button>
-                        </Space>
+                        </div>
                       </Card>
                     )}
                   </Card>

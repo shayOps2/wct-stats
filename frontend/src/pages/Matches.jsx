@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Card, Button, Form, Input, Select, DatePicker, Checkbox, Upload, message, Modal, Space, Typography, Row, Col, Divider } from "antd";
+import { Alert, Card, Button, Form, Input, Select, DatePicker, Checkbox, Upload, message, Modal, Space, Typography, Row, Col, Grid } from "antd";
 import { UploadOutlined, PlusOutlined, DeleteOutlined, SaveOutlined, ImportOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { BACKEND_URL } from "../config";
@@ -9,8 +9,11 @@ import RoundPanel from "../components/RoundPanel";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
+const { useBreakpoint } = Grid;
 
 function Matches() {
+  const screens = useBreakpoint();
+  const isCompact = !screens.lg;
   const [matches, setMatches] = useState([]);
   const [players, setPlayers] = useState([]);
   const [backupRunning, setBackupRunning] = useState(false);
@@ -325,8 +328,8 @@ function Matches() {
   };
 
   return (
-    <div style={{ maxWidth: 1600, margin: '0 auto' }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+    <div className="page-shell page-shell--wide">
+      <div className="matches-page__header">
         <Title level={2} style={{ margin: 0 }}>Matches</Title>
         <Button onClick={triggerBackup} loading={backupRunning}>
           Trigger Backup
@@ -337,12 +340,12 @@ function Matches() {
         <Alert message="Production Environment - Proceed with Caution" type="warning" showIcon style={{ marginBottom: 24 }} />
       )}
 
-      <Row gutter={24}>
-        <Col span={24} lg={12}>
+      <Row gutter={[24, 24]}>
+        <Col xs={24} xl={12}>
           <Card title="Create Match" style={{ marginBottom: 24 }}>
             <Form form={form} layout="vertical" onFinish={handleSubmit} initialValues={{ date: dayjs(), match_type: '1v1' }}>
               <Row gutter={16}>
-                <Col span={12}>
+                <Col xs={24} sm={12}>
                   <Form.Item name="match_type" label="Match Type">
                     <Select onChange={(val) => {
                       setMatchType(val);
@@ -353,7 +356,7 @@ function Matches() {
                     </Select>
                   </Form.Item>
                 </Col>
-                <Col span={12}>
+                <Col xs={24} sm={12}>
                   <Form.Item name="date" label="Date">
                     <DatePicker style={{ width: '100%' }} />
                   </Form.Item>
@@ -366,14 +369,14 @@ function Matches() {
 
               {matchType === '1v1' ? (
                 <Row gutter={16}>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item name="player1_id" label="Player 1" rules={[{ required: true }]}>
                       <Select placeholder="Select Player 1" showSearch optionFilterProp="children">
                         {players.map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)}
                       </Select>
                     </Form.Item>
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item name="player2_id" label="Player 2" rules={[{ required: true }]}>
                       <Select placeholder="Select Player 2" showSearch optionFilterProp="children">
                         {players.map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)}
@@ -383,7 +386,7 @@ function Matches() {
                 </Row>
               ) : (
                 <Row gutter={16}>
-                  <Col span={12}>
+                  <Col xs={24} md={12}>
                     <Card size="small" title="Team 1">
                       <Form.Item name="team1_name" noStyle>
                         <Input placeholder="Team 1 Name" style={{ marginBottom: 8 }} />
@@ -397,7 +400,7 @@ function Matches() {
                       </Form.Item>
                     </Card>
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} md={12}>
                     <Card size="small" title="Team 2">
                       <Form.Item name="team2_name" noStyle>
                         <Input placeholder="Team 2 Name" style={{ marginBottom: 8 }} />
@@ -421,10 +424,10 @@ function Matches() {
           </Card>
         </Col>
 
-        <Col span={24} lg={12}>
+        <Col xs={24} xl={12}>
           <Card title="Import Matches from CSV" style={{ marginBottom: 24 }}>
             <Space direction="vertical" style={{ width: '100%' }}>
-              <Space>
+              <Space wrap>
                 <Upload maxCount={1} beforeUpload={() => false} onChange={handleCsvFileChange} accept=".csv">
                   <Button icon={<UploadOutlined />}>Select CSV</Button>
                 </Upload>
@@ -461,9 +464,9 @@ function Matches() {
         </Col>
       </Row>
 
-      <Row gutter={24}>
-        <Col span={24} xl={16}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+      <Row gutter={[24, 24]}>
+        <Col xs={24} xl={16}>
+          <div className="match-card-grid">
             {matches.map(match => (
               <MatchCard
                 key={match.id}
@@ -496,9 +499,9 @@ function Matches() {
             ))}
           </div>
         </Col>
-        <Col span={24} xl={8}>
+        <Col xs={24} xl={8}>
           {selectedMatch && (
-            <div style={{ position: 'sticky', top: 24 }}>
+            <div className="matches-round-panel-wrap">
               <RoundPanel
                 selectedMatch={selectedMatch}
                 generateTeamName={generateTeamName}
@@ -517,6 +520,7 @@ function Matches() {
                 setCurrentMatchPins={setCurrentMatchPins}
                 extractTimeFromVideoURL={extractTimeFromVideoURL}
                 players={players}
+                isCompact={isCompact}
               />
             </div>
           )}

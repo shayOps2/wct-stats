@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { BACKEND_URL } from "../config";
-import { Card, Form, Input, Button, Select, Upload, List, Avatar, Typography, Space, Modal, message } from "antd";
+import { Card, Form, Input, Button, Select, Upload, List, Avatar, Typography, Space, Modal, message, Grid } from "antd";
 import { PlusOutlined, DeleteOutlined, EditOutlined, UploadOutlined } from "@ant-design/icons";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
+const { useBreakpoint } = Grid;
 
 function Players() {
+  const screens = useBreakpoint();
+  const isCompact = !screens.md;
   const [players, setPlayers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [editingPlayer, setEditingPlayer] = useState(null);
@@ -165,23 +168,23 @@ function Players() {
   };
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-      <Title level={2}>Players & Teams</Title>
+    <div className="page-shell page-shell--wide" style={{ maxWidth: 1200 }}>
+      <Title level={2} className="page-title">Players & Teams</Title>
 
       {isAdmin && (
         <Space direction="vertical" size="large" style={{ width: '100%', marginBottom: 24 }}>
           <Card title="Manage Teams">
-            <Form form={teamForm} layout="inline" onFinish={handleAddTeam}>
+            <Form form={teamForm} layout={isCompact ? "vertical" : "inline"} onFinish={handleAddTeam}>
               <Form.Item name="name" rules={[{ required: true, message: 'Please enter team name' }]}>
-                <Input placeholder="New Team Name" />
+                <Input placeholder="New Team Name" style={{ width: isCompact ? '100%' : 240 }} />
               </Form.Item>
               <Form.Item>
                 <Button type="primary" htmlType="submit" icon={<PlusOutlined />}>Add Team</Button>
               </Form.Item>
             </Form>
-            <div style={{ marginTop: 16 }}>
+            <div className="page-actions" style={{ marginTop: 16 }}>
               {teams.map(t => (
-                <Space key={t.id} style={{ marginRight: 16, marginBottom: 8 }}>
+                <Space key={t.id} style={{ marginBottom: 8 }}>
                   <Text>{t.name}</Text>
                   <Button type="text" danger size="small" icon={<DeleteOutlined />} onClick={() => handleDeleteTeam(t.id)} />
                 </Space>
@@ -190,12 +193,12 @@ function Players() {
           </Card>
 
           <Card title="Add Player">
-            <Form form={form} layout="inline" onFinish={handleAddPlayer}>
+            <Form form={form} layout={isCompact ? "vertical" : "inline"} onFinish={handleAddPlayer}>
               <Form.Item name="name" rules={[{ required: true, message: 'Please enter player name' }]}>
-                <Input placeholder="Player Name" />
+                <Input placeholder="Player Name" style={{ width: isCompact ? '100%' : 220 }} />
               </Form.Item>
               <Form.Item name="team_id">
-                <Select placeholder="Select Team (Optional)" style={{ width: 200 }} allowClear>
+                <Select placeholder="Select Team (Optional)" style={{ width: isCompact ? '100%' : 200 }} allowClear>
                   {teams.map(t => (
                     <Option key={t.id} value={t.id}>{t.name}</Option>
                   ))}
@@ -222,7 +225,7 @@ function Players() {
             <Card
               hoverable
               cover={
-                <div style={{ height: 200, overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#f0f0f0' }}>
+                <div style={{ height: isCompact ? 180 : 200, overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#f0f0f0' }}>
                   {p.image_id ? (
                     <img alt={p.name} src={`${BACKEND_URL}/players/${p.id}/image`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (

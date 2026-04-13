@@ -5,6 +5,7 @@ import {
   Col,
   Spin,
   Alert,
+  Checkbox,
   Select,
   DatePicker,
   Button,
@@ -288,12 +289,12 @@ function PlayerDetail() {
   }
 
   return (
-    <div style={{ padding: 24 }}>
-      <h2>Player Details</h2>
+    <div className="page-shell">
+      <h2 className="page-title">Player Details</h2>
 
       <Card bordered={false}>
         <Row gutter={[16, 16]} align="middle">
-          <Col xs={24} sm={6}>
+          <Col xs={24} sm={12} lg={6}>
             <Select
               style={{ width: '100%' }}
               placeholder="Select Player"
@@ -306,7 +307,7 @@ function PlayerDetail() {
             </Select>
           </Col>
 
-          <Col xs={24} sm={6}>
+          <Col xs={24} sm={12} lg={6}>
             <Select
               style={{ width: '100%' }}
               placeholder="Played Against"
@@ -323,7 +324,7 @@ function PlayerDetail() {
             </Select>
           </Col>
 
-          <Col xs={24} sm={6}>
+          <Col xs={24} sm={12} lg={6}>
             <Select
               style={{ width: '100%' }}
               placeholder="Match Type"
@@ -336,7 +337,7 @@ function PlayerDetail() {
             </Select>
           </Col>
 
-          <Col xs={24} sm={6}>
+          <Col xs={24} sm={12} lg={6}>
             <RangePicker
               style={{ width: '100%' }}
               onChange={value => {
@@ -362,49 +363,47 @@ function PlayerDetail() {
           </Col>
 
           <Col xs={24}>
-            <Button
-              type="primary"
-              onClick={fetchPlayerStats}
-              disabled={!selectedPlayer}
-              loading={loadingPlayerStats}
-              style={{ marginTop: '8px', marginRight: '8px' }}
-            >
-              Apply Filters
-            </Button>
-
-            <Button
-              onClick={fetchPlayerTips}
-              disabled={!selectedPlayer}
-              loading={loadingTips}
-              style={{ marginTop: '8px' }}
-              type="default"
-            >
-              Generate Tips
-            </Button>
-
-            {/* Clear filters button */}
-            {(dateRange || matchType || selectedOpponent) && (
+            <div className="page-actions">
               <Button
-                onClick={() => {
-                  setDateRange(null);
-                  setMatchType(null);
-                  setSelectedOpponent(null);
-                  // If player is still selected, fetch stats without filters
-                  if (selectedPlayer) {
-                    setTimeout(fetchPlayerStats, 0);
-                  }
-                }}
-                style={{ marginTop: '8px' }}
+                type="primary"
+                onClick={fetchPlayerStats}
+                disabled={!selectedPlayer}
+                loading={loadingPlayerStats}
               >
-                Clear Filters
+                Apply Filters
               </Button>
-            )}
+
+              <Button
+                onClick={fetchPlayerTips}
+                disabled={!selectedPlayer}
+                loading={loadingTips}
+                type="default"
+              >
+                Generate Tips
+              </Button>
+
+              {/* Clear filters button */}
+              {(dateRange || matchType || selectedOpponent) && (
+                <Button
+                  onClick={() => {
+                    setDateRange(null);
+                    setMatchType(null);
+                    setSelectedOpponent(null);
+                    if (selectedPlayer) {
+                      setTimeout(fetchPlayerStats, 0);
+                    }
+                  }}
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </div>
           </Col>
 
           {/* Show active filters summary */}
           {selectedPlayer && (dateRange || matchType || selectedOpponent) && (
             <Col xs={24}>
-              <div style={{ marginTop: '16px', padding: '8px', background: '#f9f9f9', borderRadius: '4px' }}>
+              <div className="active-filter-summary">
                 <h4 style={{ margin: '0 0 8px 0' }}>Active Filters:</h4>
                 <ul style={{ margin: 0, paddingLeft: '20px' }}>
                   {dateRange && dateRange[0] && (
@@ -520,21 +519,21 @@ function PlayerDetail() {
             <Col xs={24}>
               <Card title="Match Statistics" bordered={false}>
                 <Row gutter={[16, 16]}>
-                  <Col xs={8}>
+                  <Col xs={24} sm={8}>
                     <Statistic
                       title="Matches Played"
                       value={playerStats.overall.matches_played}
                       valueStyle={{ color: '#1890ff' }}
                     />
                   </Col>
-                  <Col xs={8}>
+                  <Col xs={24} sm={8}>
                     <Statistic
                       title="Matches Won"
                       value={playerStats.overall.matches_won}
                       valueStyle={{ color: '#3f8600' }}
                     />
                   </Col>
-                  <Col xs={8}>
+                  <Col xs={24} sm={8}>
                     <Statistic
                       title="Win Percentage"
                       value={playerStats.overall.win_percentage}
@@ -552,19 +551,19 @@ function PlayerDetail() {
             <Col xs={24} md={12}>
               <Card title="Offense (as Evader)" bordered={false}>
                 <Row gutter={[16, 16]}>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Statistic
                       title="Total Evasion Attempts"
                       value={playerStats.offense.total_evasion_attempts}
                     />
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Statistic
                       title="Successful Evasions"
                       value={playerStats.offense.successful_evasions}
                     />
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Statistic
                       title="Success Rate"
                       value={playerStats.offense.evasion_success_rate}
@@ -572,7 +571,7 @@ function PlayerDetail() {
                       valueStyle={{ color: playerStats.offense.evasion_success_rate > 50 ? '#3f8600' : '#cf1322' }}
                     />
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Statistic
                       title="Average Evasion Time"
                       value={playerStats.offense.average_evasion_time}
@@ -612,19 +611,19 @@ function PlayerDetail() {
             <Col xs={24} md={12}>
               <Card title="Defense (as Chaser)" bordered={false}>
                 <Row gutter={[16, 16]}>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Statistic
                       title="Total Chase Attempts"
                       value={playerStats.defense.total_chase_attempts}
                     />
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Statistic
                       title="Successful Tags"
                       value={playerStats.defense.successful_tags}
                     />
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Statistic
                       title="Success Rate"
                       value={playerStats.defense.tagging_success_rate}
@@ -632,7 +631,7 @@ function PlayerDetail() {
                       valueStyle={{ color: playerStats.defense.tagging_success_rate > 50 ? '#3f8600' : '#cf1322' }}
                     />
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Statistic
                       title="Average Tag Time"
                       value={playerStats.defense.average_tag_time}
@@ -692,38 +691,21 @@ function PlayerDetail() {
                   </div>
                 ) : playerPins.length > 0 ? (
                   <div>
-                    <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center', gap: 16 }}>
-                      <div>
-                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={showChaserPins}
-                            onChange={(e) => setShowChaserPins(e.target.checked)}
-                            style={{ marginRight: 8 }}
-                          />
-                          <span style={{ display: 'inline-block', width: 10, height: 10, backgroundColor: 'red', borderRadius: '50%', marginRight: 8 }}></span>
-                          As Chaser
-                        </label>
-                      </div>
-                      <div>
-                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={showEvaderPins}
-                            onChange={(e) => setShowEvaderPins(e.target.checked)}
-                            style={{ marginRight: 8 }}
-                          />
-                          <span style={{ display: 'inline-block', width: 10, height: 10, backgroundColor: 'blue', borderRadius: '50%', marginRight: 8 }}></span>
-                          As Evader
-                        </label>
-                      </div>
+                    <div className="player-pins-filters">
+                      <Checkbox checked={showChaserPins} onChange={(e) => setShowChaserPins(e.target.checked)}>
+                        <span style={{ display: 'inline-block', width: 10, height: 10, backgroundColor: 'red', borderRadius: '50%', marginRight: 8 }}></span>
+                        As Chaser
+                      </Checkbox>
+                      <Checkbox checked={showEvaderPins} onChange={(e) => setShowEvaderPins(e.target.checked)}>
+                        <span style={{ display: 'inline-block', width: 10, height: 10, backgroundColor: 'blue', borderRadius: '50%', marginRight: 8 }}></span>
+                        As Evader
+                      </Checkbox>
                     </div>
 
-                    <div style={{ position: 'relative', maxWidth: '800px', margin: '0 auto' }}>
+                    <div className="quad-map">
                       <img
                         src="/images/quad.jpg"
                         alt="Quad Map"
-                        style={{ width: '100%', height: 'auto', border: '1px solid #ccc' }}
                       />
 
                       {/* Map pins */}
@@ -749,19 +731,11 @@ function PlayerDetail() {
                           }
                         >
                           <div
+                            className="quad-map__pin"
                             style={{
-                              position: 'absolute',
                               left: `${pin.location.x}%`,
                               top: `${pin.location.y}%`,
-                              width: '12px',
-                              height: '12px',
                               backgroundColor: pin.chaser_id === selectedPlayer ? 'red' : 'blue',
-                              borderRadius: '50%',
-                              border: '2px solid white',
-                              cursor: 'pointer',
-                              transform: 'translate(-50%, -50%)',
-                              zIndex: 1000,
-                              boxShadow: '0 0 4px rgba(0,0,0,0.5)',
                               opacity: 0.8
                             }}
                           />

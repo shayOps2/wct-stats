@@ -49,8 +49,8 @@ function Register() {
   };
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
-      <Card style={{ width: 400, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+    <div className="auth-card-shell">
+      <Card className="auth-card">
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <Title level={3}>Register</Title>
           <Text type="secondary">Create a new account</Text>

@@ -124,12 +124,12 @@ function QuadPins() {
   }
 
   return (
-    <div style={{ padding: 24 }}>
-      <h2>All Tag Locations</h2>
+    <div className="page-shell">
+      <h2 className="page-title">All Tag Locations</h2>
 
-      <Card bordered={false} style={{ marginBottom: 24 }}>
+      <Card bordered={false} className="page-filter-card">
         <Row gutter={[16, 16]} align="middle">
-          <Col xs={24} sm={6}>
+          <Col xs={24} sm={12} lg={7}>
             <RangePicker
               style={{ width: '100%' }}
               onChange={value => setDateRange(value)}
@@ -138,7 +138,7 @@ function QuadPins() {
             />
           </Col>
 
-          <Col xs={24} sm={6}>
+          <Col xs={24} sm={12} lg={6}>
             <Select
               style={{ width: '100%' }}
               placeholder="Filter by Player"
@@ -151,7 +151,7 @@ function QuadPins() {
             </Select>
           </Col>
 
-          <Col xs={24} sm={6}>
+          <Col xs={24} sm={12} lg={5}>
             <Select
               style={{ width: '100%' }}
               placeholder="Match Type"
@@ -163,27 +163,28 @@ function QuadPins() {
             </Select>
           </Col>
 
-          <Col xs={24} sm={6}>
-            <Button
-              type="primary"
-              onClick={applyFilters}
-              loading={applyingFilters}
-              style={{ marginRight: 8 }}
-            >
-              Apply Filters
-            </Button>
-
-            {(dateRange || selectedPlayer || matchType) && (
-              <Button onClick={clearFilters}>
-                Clear Filters
+          <Col xs={24} sm={12} lg={6}>
+            <div className="page-actions">
+              <Button
+                type="primary"
+                onClick={applyFilters}
+                loading={applyingFilters}
+              >
+                Apply Filters
               </Button>
-            )}
+
+              {(dateRange || selectedPlayer || matchType) && (
+                <Button onClick={clearFilters}>
+                  Clear Filters
+                </Button>
+              )}
+            </div>
           </Col>
 
           {/* Active filters display */}
           {(dateRange || selectedPlayer || matchType) && (
             <Col xs={24}>
-              <div style={{ marginTop: '8px', padding: '8px', background: '#f9f9f9', borderRadius: '4px' }}>
+              <div className="active-filter-summary">
                 <b>Active Filters:</b>
                 <ul style={{ margin: 0, paddingLeft: '20px' }}>
                   {dateRange && dateRange[0] && (
@@ -210,32 +211,17 @@ function QuadPins() {
       </Card>
 
       {/* Quad Map with All Pins */}
-      <Card
-        title="Tag Locations on Quad Map"
-        bordered={false}
-      >
+      <Card title="Tag Locations on Quad Map" bordered={false}>
         {applyingFilters ? (
           <div style={{ textAlign: 'center', padding: 24 }}>
             <Spin size="large" />
           </div>
         ) : allPins.length > 0 ? (
           <div>
-            <div
-              style={{
-                position: 'relative',
-                maxWidth: '800px',
-                margin: '0 auto',
-                border: '1px solid #ccc'
-              }}
-            >
+            <div className="quad-map">
               <img
                 src="/images/quad.jpg"
                 alt="Quad Map"
-                style={{
-                  width: '100%',
-                  height: 'auto',
-                  display: 'block'
-                }}
                 onLoad={() => setImageLoaded(true)}
               />
 
@@ -248,11 +234,6 @@ function QuadPins() {
                   x: pin.location.x,
                   y: pin.location.y
                 };
-
-                console.log('Pin data:', {
-                  position,
-                  details: pin.matchDetails
-                });
 
                 return (
                   <Tooltip
@@ -276,19 +257,11 @@ function QuadPins() {
                     }
                   >
                     <div
+                      className="quad-map__pin"
                       style={{
-                        position: 'absolute',
                         left: `${position.x}%`,
                         top: `${position.y}%`,
-                        width: '12px',
-                        height: '12px',
                         backgroundColor: 'rgba(128, 0, 128, 0.8)',
-                        borderRadius: '50%',
-                        border: '2px solid white',
-                        cursor: 'pointer',
-                        transform: 'translate(-50%, -50%)',
-                        zIndex: 1000,
-                        boxShadow: '0 0 4px rgba(0,0,0,0.5)'
                       }}
                     />
                   </Tooltip>
